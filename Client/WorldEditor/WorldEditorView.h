@@ -58,6 +58,9 @@ class CWorldEditorView : public CView
 		void Lock();
 		void Unlock();
 		bool IsLocked();
+		void SetEditorFov (float fFov);
+		void SetEditorFarClip (float fFar);
+		void ResetDefaultPerspective();
 
 	protected:
 		void GetMouseLocalPosition (POINT point, float* px, float* py);

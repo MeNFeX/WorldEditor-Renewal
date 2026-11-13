@@ -57,6 +57,14 @@ class CAreaAccessor : public CArea
 		void AddSelectedAmbienceScale (int iAddScale);
 		void AddSelectedAmbienceMaxVolumeAreaPercentage (float fPercentage);
 		void AddSelectedObjectRotation (float fYaw, float fPitch, float fRoll);
+		void ResetSelectedObjectHeightToTerrain();
+		void ResetSelectedObjectRotation();
+		void AccumulateSelectionPivot (double & rX, double & rY, int & rCount);
+		void RotateSelectedObjectAroundPivot (float fPivotX, float fPivotY, float fYaw);
+		int GetObjectCount() const;
+		bool CopySelectedObjects (std::string & rstrText);
+		void AddCopiedObject (const TObjectData & c_rObjectData);
+		void ApplyObjectInstance (DWORD dwIndex);
 		void SetSelectedObjectPortalNumber (int iID);
 		void DelSelectedObjectPortalNumber (int iID);
 		void CollectPortalNumber (std::set<int>* pkSet_iPortalNumber);

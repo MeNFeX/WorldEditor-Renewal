@@ -499,7 +499,9 @@ void CAreaAccessor::AddSelectedObjectRotation (float fYaw, float fPitch, float f
 		}
 		if (pObjectInstance->pTree)
 		{
-			pObjectInstance->pTree->SetRotation (pObjectData->m_fYaw, pObjectData->m_fPitch, pObjectData->m_fRoll);
+			const float fTreePitch = CSpeedTreeWrapper::IsRotationEnabled() ? pObjectData->m_fPitch : 0.0f;
+			const float fTreeRoll = CSpeedTreeWrapper::IsRotationEnabled() ? pObjectData->m_fRoll : 0.0f;
+			pObjectInstance->pTree->SetRotation (pObjectData->m_fYaw, fTreePitch, fTreeRoll);
 		}
 		if (pObjectInstance->pThingInstance)
 		{
@@ -516,6 +518,152 @@ void CAreaAccessor::AddSelectedObjectRotation (float fYaw, float fPitch, float f
 			pObjectInstance->pDungeonBlock->Deform();
 		}
 	}
+}
+
+void CAreaAccessor::ApplyObjectInstance (DWORD dwIndex)
+{
+	TObjectData * pObjectData;
+	if (!GetObjectPointer (dwIndex, &pObjectData))
+		return;
+
+	TObjectInstance * pObjectInstance;
+	if (!GetInstancePointer (dwIndex, &pObjectInstance))
+		return;
+
+	const float fz = pObjectData->Position.z + pObjectData->m_fHeightBias;
+	if (pObjectInstance->dwEffectInstanceIndex != 0xffffffff)
+	{
+		TEffectInstanceIterator f = m_EffectInstanceMap.find (pObjectInstance->dwEffectInstanceIndex);
+		if (m_EffectInstanceMap.end() != f)
+		{
+			f->second->SetPosition (pObjectData->Position.x, pObjectData->Position.y, fz);
+			f->second->SetRotation (pObjectData->m_fYaw, pObjectData->m_fPitch, pObjectData->m_fRoll);
+		}
+	}
+	if (pObjectInstance->pTree)
+	{
+		const float fTreePitch = CSpeedTreeWrapper::IsRotationEnabled() ? pObjectData->m_fPitch : 0.0f;
+		const float fTreeRoll = CSpeedTreeWrapper::IsRotationEnabled() ? pObjectData->m_fRoll : 0.0f;
+		pObjectInstance->pTree->SetPosition (pObjectData->Position.x, pObjectData->Position.y, fz);
+		pObjectInstance->pTree->SetRotation (pObjectData->m_fYaw, fTreePitch, fTreeRoll);
+	}
+	if (pObjectInstance->pThingInstance)
+	{
+		pObjectInstance->pThingInstance->SetPosition (pObjectData->Position.x, pObjectData->Position.y, fz);
+		pObjectInstance->pThingInstance->SetRotation (pObjectData->m_fYaw, pObjectData->m_fPitch, pObjectData->m_fRoll);
+		pObjectInstance->pThingInstance->Update();
+		pObjectInstance->pThingInstance->Transform();
+		pObjectInstance->pThingInstance->Deform();
+	}
+	if (pObjectInstance->pDungeonBlock)
+	{
+		pObjectInstance->pDungeonBlock->SetPosition (pObjectData->Position.x, pObjectData->Position.y, fz);
+		pObjectInstance->pDungeonBlock->SetRotation (pObjectData->m_fYaw, pObjectData->m_fPitch, pObjectData->m_fRoll);
+		pObjectInstance->pDungeonBlock->Update();
+		pObjectInstance->pDungeonBlock->Transform();
+		pObjectInstance->pDungeonBlock->Deform();
+	}
+	if (pObjectInstance->pAmbienceInstance)
+	{
+		pObjectInstance->pAmbienceInstance->fx = pObjectData->Position.x;
+		pObjectInstance->pAmbienceInstance->fy = pObjectData->Position.y;
+		pObjectInstance->pAmbienceInstance->fz = fz;
+	}
+}
+
+void CAreaAccessor::ResetSelectedObjectHeightToTerrain()
+{
+	for (TSelectObjectList::iterator itor = m_SelectObjectList.begin(); itor != m_SelectObjectList.end(); ++itor)
+	{
+		TObjectData * pObjectData;
+		if (!GetObjectPointer (itor->dwIndex, &pObjectData))
+			continue;
+		pObjectData->m_fHeightBias = 0.0f;
+		ApplyObjectInstance (itor->dwIndex);
+	}
+}
+
+void CAreaAccessor::ResetSelectedObjectRotation()
+{
+	for (TSelectObjectList::iterator itor = m_SelectObjectList.begin(); itor != m_SelectObjectList.end(); ++itor)
+	{
+		TObjectData * pObjectData;
+		if (!GetObjectPointer (itor->dwIndex, &pObjectData))
+			continue;
+		pObjectData->m_fYaw = 0.0f;
+		pObjectData->m_fPitch = 0.0f;
+		pObjectData->m_fRoll = 0.0f;
+		ApplyObjectInstance (itor->dwIndex);
+	}
+}
+
+void CAreaAccessor::AccumulateSelectionPivot (double & rX, double & rY, int & rCount)
+{
+	for (TSelectObjectList::iterator itor = m_SelectObjectList.begin(); itor != m_SelectObjectList.end(); ++itor)
+	{
+		TObjectData * pObjectData;
+		if (!GetObjectPointer (itor->dwIndex, &pObjectData))
+			continue;
+		rX += pObjectData->Position.x;
+		rY += pObjectData->Position.y;
+		++rCount;
+	}
+}
+
+void CAreaAccessor::RotateSelectedObjectAroundPivot (float fPivotX, float fPivotY, float fYaw)
+{
+	const float fRad = D3DXToRadian (fYaw);
+	const float fCos = cosf (fRad);
+	const float fSin = sinf (fRad);
+	for (TSelectObjectList::iterator itor = m_SelectObjectList.begin(); itor != m_SelectObjectList.end(); ++itor)
+	{
+		TObjectData * pObjectData;
+		if (!GetObjectPointer (itor->dwIndex, &pObjectData))
+			continue;
+		const float fDx = pObjectData->Position.x - fPivotX;
+		const float fDy = pObjectData->Position.y - fPivotY;
+		pObjectData->Position.x = fPivotX + fDx * fCos - fDy * fSin;
+		pObjectData->Position.y = fPivotY + fDx * fSin + fDy * fCos;
+		pObjectData->m_fYaw = fmod (pObjectData->m_fYaw + fYaw + 360.0f, 360.0f);
+		ApplyObjectInstance (itor->dwIndex);
+	}
+}
+
+int CAreaAccessor::GetObjectCount() const
+{
+	return (int) m_ObjectDataVector.size();
+}
+
+bool CAreaAccessor::CopySelectedObjects (std::string & rstrText)
+{
+	bool bAny = false;
+	for (TSelectObjectList::iterator itor = m_SelectObjectList.begin(); itor != m_SelectObjectList.end(); ++itor)
+	{
+		TObjectData * pObjectData;
+		if (!GetObjectPointer (itor->dwIndex, &pObjectData))
+			continue;
+		char szLine[512];
+		_snprintf (szLine, sizeof (szLine), "WEOBJ %u %.4f %.4f %.4f %.4f %.4f %.4f %.4f %u %.4f",
+			pObjectData->dwCRC,
+			pObjectData->Position.x, pObjectData->Position.y, pObjectData->m_fHeightBias,
+			pObjectData->m_fYaw, pObjectData->m_fPitch, pObjectData->m_fRoll,
+			0.0f, pObjectData->dwRange, pObjectData->fMaxVolumeAreaPercentage);
+		rstrText += szLine;
+		for (int i = 0; i < PORTAL_ID_MAX_NUM; ++i)
+		{
+			char szPortal[16];
+			_snprintf (szPortal, sizeof (szPortal), " %u", (unsigned) pObjectData->abyPortalID[i]);
+			rstrText += szPortal;
+		}
+		rstrText += "\r\n";
+		bAny = true;
+	}
+	return bAny;
+}
+
+void CAreaAccessor::AddCopiedObject (const TObjectData & c_rObjectData)
+{
+	AddObject (&c_rObjectData);
 }
 
 void CAreaAccessor::SetSelectedObjectPortalNumber (int iID)
@@ -1231,28 +1379,17 @@ void CAreaAccessor::__RefreshSelectedInfo()
 	pMapAccessor->ClearSelectedPortalNumber();
 	if (m_SelectObjectList.empty())
 	{
-		pMapAccessor->SetSelectedObjectName ("None");
+		pMapAccessor->SetSelectedObjectName ("No object selected");
 	}
 	else
 	{
-		// Name
-		if (1 == m_SelectObjectList.size())
-		{
-			SSelectObject & rSelectObject = *m_SelectObjectList.begin();
-			TObjectData & rObjectData = m_ObjectDataVector[rSelectObject.dwIndex];
-
-			CProperty * pProperty;
-			if (CPropertyManager::Instance().Get (rObjectData.dwCRC, &pProperty))
-			{
-				const char* c_szObjectName = _getf ("[%u] %s", pProperty->GetCRC(), pProperty->GetFileName());
-				pMapAccessor->SetSelectedObjectName (c_szObjectName);
-			}
-		}
-		else
-		{
-			const char* c_szObjectName = _getf ("복수 오브젝트");
-			pMapAccessor->SetSelectedObjectName (c_szObjectName);
-		}
+		const char* c_szFileName = "";
+		SSelectObject & rSelectObject = *m_SelectObjectList.begin();
+		TObjectData & rObjectData = m_ObjectDataVector[rSelectObject.dwIndex];
+		CProperty * pProperty;
+		if (CPropertyManager::Instance().Get (rObjectData.dwCRC, &pProperty))
+			c_szFileName = pProperty->GetFileName();
+		pMapAccessor->SetSelectedObjectName (_getf ("[%u](%s)", (unsigned) m_SelectObjectList.size(), c_szFileName));
 
 		// Portal Number
 		std::map<DWORD, DWORD> kMap_iPortalNumber;

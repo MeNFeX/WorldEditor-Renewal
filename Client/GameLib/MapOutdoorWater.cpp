@@ -8,11 +8,26 @@
 void CMapOutdoor::LoadWaterTexture()
 {
 	UnloadWaterTexture();
+
+	if (m_strSpecialWaterPath.empty())
+		m_strSpecialWaterPath = "d:/ymir Work/special/water";
+	if (m_dwSpecialWaterCount < 1 || m_dwSpecialWaterCount > 30)
+		m_dwSpecialWaterCount = 30;
+
 	char buf[256];
-	for (int i = 0; i < 30; ++i)
+	for (DWORD i = 0; i < m_dwSpecialWaterCount; ++i)
 	{
-		sprintf(buf, "d:/ymir Work/special/water/%02d.dds", i+1);
-		m_WaterInstances[i].SetImagePointer((CGraphicImage *) CResourceManager::Instance().GetResourcePointer(buf));
+		_snprintf(buf, sizeof(buf), "%s/%02d.dds", m_strSpecialWaterPath.c_str(), i + 1);
+		buf[sizeof(buf) - 1] = '\0';
+		if (!CResourceManager::Instance().IsFileExist(buf))
+		{
+			TraceError("The file [%s] doesn't exist", buf);
+			continue;
+		}
+
+		CGraphicImage * pImage = (CGraphicImage *) CResourceManager::Instance().GetResourcePointer(buf);
+		if (pImage)
+			m_WaterInstances[i].SetImagePointer(pImage);
 	}
 }
 
@@ -30,6 +45,11 @@ void CMapOutdoor::RenderWater()
 	if (!IsVisiblePart(PART_WATER))
 		return;
 
+	const DWORD dwWaterCount = (m_dwSpecialWaterCount >= 1 && m_dwSpecialWaterCount <= 30) ? m_dwSpecialWaterCount : 30;
+	CGraphicTexture * pWaterTexture = m_WaterInstances[(ELTimer_GetMSec() / 70) % dwWaterCount].GetTexturePointer();
+	if (!pWaterTexture || !pWaterTexture->GetD3DTexture())
+		return;
+
 	//////////////////////////////////////////////////////////////////////////
 	// RenderState
 	D3DXMATRIX matTexTransformWater;
@@ -40,7 +60,7 @@ void CMapOutdoor::RenderWater()
 	STATEMANAGER.SaveRenderState(D3DRS_DIFFUSEMATERIALSOURCE, D3DMCS_COLOR1);
 	STATEMANAGER.SaveRenderState(D3DRS_COLORVERTEX, TRUE);
 
-	STATEMANAGER.SetTexture(0, m_WaterInstances[((ELTimer_GetMSec() / 70) % 30)].GetTexturePointer()->GetD3DTexture());
+	STATEMANAGER.SetTexture(0, pWaterTexture->GetD3DTexture());
 
 	D3DXMatrixScaling(&matTexTransformWater, m_fWaterTexCoordBase, -m_fWaterTexCoordBase, 0.0f);
 	D3DXMatrixMultiply(&matTexTransformWater, &m_matViewInverse, &matTexTransformWater);

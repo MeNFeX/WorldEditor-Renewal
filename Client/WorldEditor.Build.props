@@ -29,6 +29,7 @@
       <WorldEditorOldDll Include="$(WorldEditorDataDirectory)\granny2.dll;$(WorldEditorDataDirectory)\DevIL.dll;$(WorldEditorDataDirectory)\ILU.dll;$(WorldEditorDataDirectory)\python27.dll;$(WorldEditorDataDirectory)\MSS32.DLL;$(WorldEditorDataDirectory)\SpeedTreeRT.dll" />
       <WorldEditorOldDll Remove="@(WorldEditorOldDll)" Condition="!Exists('%(Identity)') Or Exists('$(WorldEditorDataDirectory)\.worldeditor-backup\%(Filename)%(Extension).bak')" />
       <WorldEditorRuntimeDll Include="$(WorldEditorRoot)Extern\dll\DevIL.dll;$(WorldEditorRoot)Extern\dll\ILU.dll;$(WorldEditorRoot)D_Disc\python27.dll;$(WorldEditorRoot)D_Disc\MSS32.DLL;$(WorldEditorRoot)D_Disc\SpeedTreeRT.dll" />
+      <WorldEditorRuntimeDll Remove="@(WorldEditorRuntimeDll)" Condition="!Exists('%(Identity)')" />
     </ItemGroup>
     <Copy SourceFiles="@(WorldEditorOldDll)" DestinationFiles="@(WorldEditorOldDll->'$(WorldEditorDataDirectory)\.worldeditor-backup\%(Filename)%(Extension).bak')" SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(WorldEditorRuntimeDll)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />

@@ -77,6 +77,7 @@ class CTextureSet
 								   float fTerrainTexCoordBase);
 
 		const char *	GetFileName() const { return m_stFileName.c_str(); }
+		void			SetFileName(const char * c_szFileName) { m_stFileName = c_szFileName ? c_szFileName : ""; }
 
 	protected:
 		void			AddEmptyTexture();

@@ -8,7 +8,10 @@ void CActorInstanceAccessor::ClearAttachingObject()
 	for (auto itor = m_AttachingObjectList.begin(); itor != m_AttachingObjectList.end(); ++itor)
 	{
 		SAttachingModelInstance & rInstance = *itor;
-		rInstance.pThing->Release();
+		if (rInstance.pThing)
+		{
+			rInstance.pThing->Release();
+		}
 		delete rInstance.pModelInstance;
 		rInstance.pModelInstance = nullptr;
 	}
@@ -17,32 +20,31 @@ void CActorInstanceAccessor::ClearAttachingObject()
 
 void CActorInstanceAccessor::AttachObject (const char* c_szFileName, const char* c_szBoneName)
 {
-	if (0 == strlen (c_szFileName))
+	if (!c_szFileName || !c_szFileName[0])
 	{
 		return;
 	}
+
+	if (!CResourceManager::Instance().IsFileExist (c_szFileName))
+	{
+		TraceError ("The file [%s] is not a model or doesn't exist", c_szFileName);
+		return;
+	}
+
+	CGraphicThing * pThing = (CGraphicThing*)CResourceManager::Instance().GetResourcePointer (c_szFileName);
+	if (!pThing || pThing->GetModelCount() < 1 || !pThing->GetModelPointer (0))
+	{
+		TraceError ("The file [%s] is not a model or doesn't exist", c_szFileName);
+		return;
+	}
+
+	pThing->AddReference();
 
 	SAttachingModelInstance ModelInstance;
-
-	ModelInstance.pThing = (CGraphicThing*)CResourceManager::Instance().GetResourcePointer (c_szFileName);
-	ModelInstance.pThing->AddReference();
-	if (1 != ModelInstance.pThing->GetModelCount())
-	{
-		return;
-	}
-
-	ModelInstance.strBoneName = c_szBoneName;
+	ModelInstance.pThing = pThing;
+	ModelInstance.strBoneName = c_szBoneName ? c_szBoneName : "";
 	ModelInstance.pModelInstance = new CModelInstanceAccessor;
-
-	CGraphicVertexBuffer m_kSharedDeformableVertexBuffer;
-	m_kSharedDeformableVertexBuffer.Destroy();
-	m_kSharedDeformableVertexBuffer.Create (
-		ModelInstance.pModelInstance->GetDeformableVertexCount(),
-		D3DFVF_XYZ | D3DFVF_NORMAL | D3DFVF_TEX1,
-		D3DUSAGE_WRITEONLY,
-		D3DPOOL_DEFAULT);
-	ModelInstance.pModelInstance->SetMainModelPointer (ModelInstance.pThing->GetModelPointer (0), &m_kSharedDeformableVertexBuffer);
-	//ModelInstance.pModelInstance->SetModelPointer(ModelInstance.pThing->GetModelPointer(0));
+	ModelInstance.pModelInstance->SetMainModelPointer (pThing->GetModelPointer (0), nullptr);
 
 	m_AttachingObjectList.push_back (ModelInstance);
 }

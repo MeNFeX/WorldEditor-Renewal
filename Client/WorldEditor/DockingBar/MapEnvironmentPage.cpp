@@ -190,6 +190,14 @@ void CMapEnvironmentPage::UpdateUI()
 	const TEnvironmentData * c_pEnvironmentData;
 	pMapManagerAccessor->GetEnvironmentData (&c_pEnvironmentData);
 
+	CMapOutdoorAccessor * pOutdoor = pMapManagerAccessor->GetMapOutdoorPtr();
+	if (pOutdoor)
+		SetDlgItemText (IDC_MAP_ENVIRONMENT_SCRIPT_NAME_PRINT, pOutdoor->GetEnvironmentDataName().c_str());
+
+	char szScriptVersion[32];
+	sprintf (szScriptVersion, "%.4f", c_pEnvironmentData->fScriptVersion);
+	SetDlgItemText (IDC_MAP_ENVIRONMENT_SCRIPT_VERSION_PRINT, szScriptVersion);
+
 	COLORREF MaterialDiffuseColor = RGB (WORD (c_pEnvironmentData->Material.Diffuse.r * 255.0f),
 										 WORD (c_pEnvironmentData->Material.Diffuse.g * 255.0f),
 										 WORD (c_pEnvironmentData->Material.Diffuse.b * 255.0f));
@@ -226,8 +234,8 @@ void CMapEnvironmentPage::UpdateUI()
 	m_ctrlLightAmbient.Update();
 	m_ctrlFogColor.Update();
 	m_ctrlFilteringColor.Update();
-	m_ctrlWindStrength.SetPos (long (c_pEnvironmentData->fWindStrength));
-	m_ctrlWindRandom.SetPos (long (c_pEnvironmentData->fWindRandom));
+	m_ctrlWindStrength.SetPos (long (c_pEnvironmentData->fWindStrength * 100.0f));
+	m_ctrlWindRandom.SetPos (long (c_pEnvironmentData->fWindRandom * 100.0f));
 	m_ctrlFilteringAlpha.SetPos (long (c_pEnvironmentData->FilteringColor.a * 100.0f));
 
 	m_ctrlFogNearDistance.SetLimitText (16);
@@ -611,7 +619,7 @@ void CMapEnvironmentPage::OnHScroll (UINT nSBCode, UINT nPos, CScrollBar* pScrol
 			break;
 
 		case IDC_MAP_ENVIRONMENT_WIND_RANDOM:
-			pMapManagerAccessor->SetWindStrength (float (m_ctrlWindRandom.GetPos()) / 100.0f);
+			pMapManagerAccessor->SetWindRandom (float (m_ctrlWindRandom.GetPos()) / 100.0f);
 			break;
 
 		case IDC_MAP_ENVIRONMENT_FILTERING_ALPHA:

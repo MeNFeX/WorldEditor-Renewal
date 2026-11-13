@@ -13,6 +13,10 @@
 #include "../DataCtrl/NonPlayerCharacterInfo.h"
 #include "../../MilesLib/SoundManager.h"
 #include "../DataCtrl/MiniMapRenderHelper.h"
+#include "../Util.h"
+
+static DWORD s_dwClipboardPasteAt = 0;
+static bool s_bClipboardPasted = false;
 
 struct FGetPortalID
 {
@@ -38,6 +42,123 @@ struct FGetPortalID
 	}
 };
 
+void CSceneMap::UpdateRemixMovement()
+{
+	CWnd * pFocus = CWnd::GetFocus();
+	if (pFocus && (pFocus->IsKindOf (RUNTIME_CLASS (CEdit)) || pFocus->IsKindOf (RUNTIME_CLASS (CComboBox)) || pFocus->IsKindOf (RUNTIME_CLASS (CListCtrl))))
+	{
+		return;
+	}
+	if (GetAsyncKeyState (VK_LCONTROL) & 0x8000)
+	{
+		return;
+	}
+
+	CCamera * pCamera = CCameraManager::Instance().GetCurrentCamera();
+	D3DXVECTOR3 vForward = pCamera->GetView();
+	D3DXVECTOR3 vRight = pCamera->GetCross();
+	vForward.z = 0.0f;
+	vRight.z = 0.0f;
+	if (D3DXVec3Length (&vForward) < 0.001f)
+	{
+		vForward = D3DXVECTOR3 (0.0f, -1.0f, 0.0f);
+	}
+	else
+	{
+		D3DXVec3Normalize (&vForward, &vForward);
+	}
+	if (D3DXVec3Length (&vRight) < 0.001f)
+	{
+		vRight = D3DXVECTOR3 (1.0f, 0.0f, 0.0f);
+	}
+	else
+	{
+		D3DXVec3Normalize (&vRight, &vRight);
+	}
+
+	float fDistance = pCamera->GetDistance();
+	if (fDistance < 200.0f)
+	{
+		fDistance = 200.0f;
+	}
+	const float fWorld = fDistance * 0.0015f * (CWorldEditorConfig::Instance().WasdMinimalMove() / 100.0f);
+	float fx = 0.0f;
+	float fy = 0.0f;
+
+	if (GetAsyncKeyState ('W') & 0x8000)
+	{
+		fx += vForward.x * fWorld;
+		fy += vForward.y * fWorld;
+	}
+	if (GetAsyncKeyState ('S') & 0x8000)
+	{
+		fx -= vForward.x * fWorld;
+		fy -= vForward.y * fWorld;
+	}
+	if (GetAsyncKeyState ('D') & 0x8000)
+	{
+		fx += vRight.x * fWorld;
+		fy += vRight.y * fWorld;
+	}
+	if (GetAsyncKeyState ('A') & 0x8000)
+	{
+		fx -= vRight.x * fWorld;
+		fy -= vRight.y * fWorld;
+	}
+
+	const float fArrow = fWorld * 10.0f;
+	if (GetAsyncKeyState (VK_UP) & 0x8000)
+	{
+		fx += vForward.x * fArrow;
+		fy += vForward.y * fArrow;
+	}
+	if (GetAsyncKeyState (VK_DOWN) & 0x8000)
+	{
+		fx -= vForward.x * fArrow;
+		fy -= vForward.y * fArrow;
+	}
+	if (GetAsyncKeyState (VK_RIGHT) & 0x8000)
+	{
+		fx += vRight.x * fArrow;
+		fy += vRight.y * fArrow;
+	}
+	if (GetAsyncKeyState (VK_LEFT) & 0x8000)
+	{
+		fx -= vRight.x * fArrow;
+		fy -= vRight.y * fArrow;
+	}
+
+	if (fx != 0.0f || fy != 0.0f)
+	{
+		OnMovePosition (fx, fy);
+	}
+}
+
+void CSceneMap::FrameCameraForMiniMap()
+{
+	short sCountX = 1;
+	short sCountY = 1;
+	m_pMapAccessor->GetTerrainCount (&sCountX, &sCountY);
+	if (sCountX < 1)
+	{
+		sCountX = 1;
+	}
+	if (sCountY < 1)
+	{
+		sCountY = 1;
+	}
+
+	const float fCenterX = (float) sCountX * (float) CTerrainImpl::TERRAIN_XSIZE * 0.5f;
+	const float fCenterY = - (float) sCountY * (float) CTerrainImpl::TERRAIN_YSIZE * 0.5f;
+	const D3DXVECTOR3 v3Target (fCenterX, fCenterY, 20000.0f);
+	const D3DXVECTOR3 v3Eye (fCenterX, fCenterY - 10.0f, 100000.0f);
+	CCameraManager::Instance().GetCurrentCamera()->SetViewParams (v3Eye, v3Target, D3DXVECTOR3 (0.0f, 0.0f, 1.0f));
+
+	CMainFrame * pFrame = (CMainFrame*) AfxGetMainWnd();
+	CWorldEditorView * pView = (CWorldEditorView*) pFrame->GetActiveView();
+	pView->SetEditorFarClip (150000.0f);
+}
+
 void CSceneMap::OnUpdate()
 {
 	//	CCullingManager::Instance().Process();
@@ -48,6 +169,9 @@ void CSceneMap::OnUpdate()
 	{
 		return;
 	}
+
+	m_pMapManagerAccessor->UpdateAutoSave();
+	UpdateRemixMovement();
 
 	D3DXVECTOR3 pv3Position = ms_Camera->GetTarget();
 
@@ -121,6 +245,8 @@ void CSceneMap::OnRender (BOOL bClear)
 			return;
 		}
 
+		const D3DXVECTOR3 v3CameraBeforeInsert = CCameraManager::Instance().GetCurrentCamera()->GetTarget();
+
 
 		short wX, wY;
 		m_pMapAccessor->GetTerrainCount (&wX, &wY);
@@ -151,6 +277,14 @@ void CSceneMap::OnRender (BOOL bClear)
 
 
 		//pTerrainAccessor->SetCoordinate(wOx, wOy);
+
+		if (CWorldEditorConfig::Instance().NoGotoAfterInsert())
+		{
+			CMainFrame * pFrame = (CMainFrame*) AfxGetMainWnd();
+			CWorldEditorView * pView = (CWorldEditorView*) pFrame->GetActiveView();
+			const D3DXVECTOR3 v3CameraNow = CCameraManager::Instance().GetCurrentCamera()->GetTarget();
+			pView->UpdateTargetPosition (v3CameraBeforeInsert.x - v3CameraNow.x, v3CameraBeforeInsert.y - v3CameraNow.y);
+		}
 
 		m_bTerrainShadowMapUpdateNeeded = false;
 	}
@@ -1183,7 +1317,7 @@ void CSceneMap::SaveMiniMapWithMonsterAreaInfo()
 		SetColorOperation();
 		SetDiffuseColor (1.0f, 1.0f, 1.0f);
 		CMonsterAreaInfo * pMonsterAreaInfo;
-		DWORD dwMonsterAreaCount = m_pMapManagerAccessor->GetMonsterAreaInfoCount();
+		DWORD dwMonsterAreaCount = CWorldEditorConfig::Instance().MaiImageWithoutMonsterAreaInfo() ? 0 : m_pMapManagerAccessor->GetMonsterAreaInfoCount();
 		for (DWORD dwIndex = 0; dwIndex < dwMonsterAreaCount; ++dwIndex)
 		{
 			if (!m_pMapManagerAccessor->GetMonsterAreaInfoFromVectorIndex (dwIndex, &pMonsterAreaInfo))
@@ -1323,6 +1457,29 @@ void CSceneMap::OnKeyDown (int iChar)
 			}
 			break;
 
+		case 'C':
+			if (GetAsyncKeyState (VK_CONTROL) & 0x8000)
+				m_pMapManagerAccessor->CopySelectedObjectsToClipboard();
+			break;
+
+		case 'V':
+			if (GetAsyncKeyState (VK_CONTROL) & 0x8000)
+			{
+				const DWORD dwNow = GetTickCount();
+				if (!s_bClipboardPasted)
+				{
+					if (s_dwClipboardPasteAt == 0)
+						s_dwClipboardPasteAt = dwNow;
+					if (dwNow - s_dwClipboardPasteAt >= 1000)
+					{
+						m_pMapManagerAccessor->PasteObjectsFromClipboard();
+						s_bClipboardPasted = true;
+						pFrame->UpdateMapControlBar();
+					}
+				}
+			}
+			break;
+
 		case VK_F3:
 			SetMapBoundGrid (!GetMapBoundGrid());
 			break;
@@ -1366,6 +1523,45 @@ void CSceneMap::OnKeyDown (int iChar)
 		case VK_END:
 			CShadowRenderHelper::Instance().SetIntermediateShadowMapPower (CShadowRenderHelper::Instance().GetIntermediateShadowMapPower() - 1);
 			break;
+
+		case 'H':
+			m_pMapManagerAccessor->RefreshArea();
+			Tracef ("Refresh MDATR Heights\n");
+			break;
+
+		case 'Y':
+		{
+			CWorldEditorView * pView = (CWorldEditorView*) pFrame->GetActiveView();
+			pView->ResetDefaultPerspective();
+			break;
+		}
+
+		case 'T':
+			FrameCameraForMiniMap();
+			break;
+
+		case VK_CAPITAL:
+			if (m_bShadowRenderingOn)
+			{
+				CTerrainAccessor::SetGaussianCubic (!CTerrainAccessor::IsGaussianCubic());
+				Tracef ("GaussianCubic %s\n", CTerrainAccessor::IsGaussianCubic() ? "on" : "off");
+			}
+			break;
+
+		case '1':
+		case '2':
+		case '3':
+		case '4':
+		case '5':
+		case '6':
+			if (GetAsyncKeyState (VK_LSHIFT) & 0x8000)
+			{
+				const int iMode = iChar - '0';
+				const int iCurrent = CMapOutdoor::GetTextureCountColorMode();
+				CMapOutdoor::SetTextureCountColorMode (iCurrent == iMode ? 0 : iMode);
+				Tracef ("TextureCountThreshold %d\n", CMapOutdoor::GetTextureCountColorMode());
+			}
+			break;
 	}
 }
 
@@ -1378,7 +1574,19 @@ void CSceneMap::OnKeyUp (int iChar)
 
 	switch (iChar)
 	{
+		case 'V':
+			if (!s_bClipboardPasted && s_dwClipboardPasteAt != 0 && GetTickCount() - s_dwClipboardPasteAt >= 1000)
+			{
+				m_pMapManagerAccessor->PasteObjectsFromClipboard();
+				CMainFrame * pFrame = (CMainFrame*) AfxGetMainWnd();
+				pFrame->UpdateMapControlBar();
+			}
+			s_dwClipboardPasteAt = 0;
+			s_bClipboardPasted = false;
+			break;
+
 		case VK_INSERT:
+		case VK_F6:
 			m_bTerrainShadowMapUpdateNeeded = true;
 			break;
 	}
@@ -1396,7 +1604,7 @@ void CSceneMap::OnMouseMove (LONG x, LONG y)
 
 	CRect Rect;
 	pView->GetWindowRect (&Rect);
-	SetPerspective (40.0f, float (Rect.Width()) / float (Rect.Height()), 100.0f, 50000.0f);
+	SetPerspective (CWorldEditorConfig::Instance().WindowFov(), float (Rect.Width()) / float (Rect.Height()), 100.0f, 50000.0f);
 	SetCursorPosition ((int) x, (int) y, Rect.Width(), Rect.Height());
 	GetCursorPosition (&ms_vecMousePosition.x, &ms_vecMousePosition.y, &ms_vecMousePosition.z);
 	m_pMapManagerAccessor->UpdateHeightFieldEditingPt (&m_vecMouseMapIntersectPosition);
@@ -1621,12 +1829,18 @@ BOOL CSceneMap::OnMouseWheel (short zDelta)
 {
 	if (m_iEditingMode == EDITING_MODE_OBJECT)
 	{
+		const float fStep = float (zDelta / 120) * float (CArea::YAW_STEP_AMOUNT);
 		if (GetAsyncKeyState (VK_1) & 0x8000)
 		{
-			int icurRotation = int (m_CursorRenderer.GetCursorYaw()) / CArea::YAW_STEP_AMOUNT;
-			int iNewRotation = (icurRotation + int (zDelta / 120)) * CArea::YAW_STEP_AMOUNT;
-			iNewRotation = (iNewRotation + 360) % 360;
-			m_CursorRenderer.SetCursorYaw (iNewRotation);
+			if (m_pMapManagerAccessor->GetSelectedObjectCount() > 0)
+				m_pMapManagerAccessor->AddSelectedObjectRotation (fStep, 0.0f, 0.0f);
+			else
+			{
+				int icurRotation = int (m_CursorRenderer.GetCursorYaw()) / CArea::YAW_STEP_AMOUNT;
+				int iNewRotation = (icurRotation + int (zDelta / 120)) * CArea::YAW_STEP_AMOUNT;
+				iNewRotation = (iNewRotation + 360) % 360;
+				m_CursorRenderer.SetCursorYaw (iNewRotation);
+			}
 
 			CMainFrame * pFrame = (CMainFrame*) AfxGetMainWnd();
 			pFrame->UpdateMapControlBar();
@@ -1636,10 +1850,15 @@ BOOL CSceneMap::OnMouseWheel (short zDelta)
 
 		if (GetAsyncKeyState (VK_2) & 0x8000)
 		{
-			int icurRotation = int (m_CursorRenderer.GetCursorPitch()) / CArea::PITCH_STEP_AMOUNT;
-			int iNewRotation = (icurRotation - int (zDelta / 120)) * CArea::PITCH_STEP_AMOUNT;
-			iNewRotation = (iNewRotation + 360) % 360;
-			m_CursorRenderer.SetCursorPitch (iNewRotation);
+			if (m_pMapManagerAccessor->GetSelectedObjectCount() > 0)
+				m_pMapManagerAccessor->AddSelectedObjectRotation (0.0f, -fStep, 0.0f);
+			else
+			{
+				int icurRotation = int (m_CursorRenderer.GetCursorPitch()) / CArea::PITCH_STEP_AMOUNT;
+				int iNewRotation = (icurRotation - int (zDelta / 120)) * CArea::PITCH_STEP_AMOUNT;
+				iNewRotation = (iNewRotation + 360) % 360;
+				m_CursorRenderer.SetCursorPitch (iNewRotation);
+			}
 
 			CMainFrame * pFrame = (CMainFrame*) AfxGetMainWnd();
 			pFrame->UpdateMapControlBar();
@@ -1649,14 +1868,27 @@ BOOL CSceneMap::OnMouseWheel (short zDelta)
 
 		if (GetAsyncKeyState (VK_3) & 0x8000)
 		{
-			int icurRotation = int (m_CursorRenderer.GetCursorRoll()) / CArea::ROTATION_STEP_AMOUNT;
-			int iNewRotation = (icurRotation + int (zDelta / 120)) * CArea::ROTATION_STEP_AMOUNT;
-			iNewRotation = (iNewRotation + 360) % 360;
-			m_CursorRenderer.SetCursorRoll (iNewRotation);
+			if (m_pMapManagerAccessor->GetSelectedObjectCount() > 0)
+				m_pMapManagerAccessor->AddSelectedObjectRotation (0.0f, 0.0f, fStep);
+			else
+			{
+				int icurRotation = int (m_CursorRenderer.GetCursorRoll()) / CArea::ROTATION_STEP_AMOUNT;
+				int iNewRotation = (icurRotation + int (zDelta / 120)) * CArea::ROTATION_STEP_AMOUNT;
+				iNewRotation = (iNewRotation + 360) % 360;
+				m_CursorRenderer.SetCursorRoll (iNewRotation);
+			}
 
 			CMainFrame * pFrame = (CMainFrame*) AfxGetMainWnd();
 			pFrame->UpdateMapControlBar();
 
+			return TRUE;
+		}
+
+		if ((GetAsyncKeyState ('8') & 0x8000) || (GetAsyncKeyState (VK_NUMPAD8) & 0x8000))
+		{
+			m_pMapManagerAccessor->RotateSelectedObjectAroundPivot (fStep);
+			CMainFrame * pFrame = (CMainFrame*) AfxGetMainWnd();
+			pFrame->UpdateMapControlBar();
 			return TRUE;
 		}
 
@@ -1673,7 +1905,7 @@ BOOL CSceneMap::OnMouseWheel (short zDelta)
 
 		if (GetAsyncKeyState (VK_5) & 0x8000)
 		{
-			float fNewHeight = m_CursorRenderer.GetObjectHeight() + float (zDelta / 120) * 5.0f;
+			float fNewHeight = m_CursorRenderer.GetObjectHeight() + float (zDelta / 120) * 50.0f;
 			m_CursorRenderer.SetObjectHeight (fNewHeight);
 
 			CMainFrame * pFrame = (CMainFrame*) AfxGetMainWnd();
@@ -1708,6 +1940,26 @@ BOOL CSceneMap::OnMouseWheel (short zDelta)
 		{
 			float fMovement = float (zDelta / 120) * 50.0f;
 			m_pMapManagerAccessor->MoveSelectedObjectHeight (fMovement);
+			return TRUE;
+		}
+
+		float fObjectStep = 10.0f;
+		if (GetAsyncKeyState (VK_RCONTROL) & 0x8000)
+		{
+			fObjectStep *= 100.0f;
+		}
+		else if (GetAsyncKeyState (VK_RSHIFT) & 0x8000)
+		{
+			fObjectStep *= 10.0f;
+		}
+		if ((GetAsyncKeyState ('9') & 0x8000) || (GetAsyncKeyState (VK_NUMPAD9) & 0x8000))
+		{
+			m_pMapManagerAccessor->MoveSelectedObject (float (zDelta / 120) * fObjectStep, 0.0f);
+			return TRUE;
+		}
+		if ((GetAsyncKeyState ('0') & 0x8000) || (GetAsyncKeyState (VK_NUMPAD0) & 0x8000))
+		{
+			m_pMapManagerAccessor->MoveSelectedObject (0.0f, float (zDelta / 120) * fObjectStep);
 			return TRUE;
 		}
 

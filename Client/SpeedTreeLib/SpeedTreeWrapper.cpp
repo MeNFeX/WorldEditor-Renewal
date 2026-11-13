@@ -52,6 +52,7 @@ using namespace std;
 
 LPDIRECT3DVERTEXSHADER9 CSpeedTreeWrapper::ms_lpBranchVertexShader = nullptr;
 LPDIRECT3DVERTEXSHADER9 CSpeedTreeWrapper::ms_lpLeafVertexShader = nullptr;
+bool CSpeedTreeWrapper::ms_bRotationEnabled = false;
 unsigned int CSpeedTreeWrapper::m_unNumWrappersActive = 0;
 bool CSpeedTreeWrapper::ms_bSelfShadowOn = true;
 #define AGBR2ARGB(dwColor) (dwColor & 0xff00ff00) + ((dwColor & 0x00ff0000) >> 16) + ((dwColor & 0x000000ff) << 16)
@@ -64,6 +65,7 @@ m_bIsInstance(false),
 m_pInstanceOf(nullptr),
 m_pGeometryCache(nullptr),
 m_usNumLeafLods(0),
+m_pusLeafVertexCount(nullptr),
 m_unNumFrondLods(0),
 m_pBranchIndexCounts(nullptr),
 m_pBranchIndexBuffer(nullptr),
@@ -265,6 +267,7 @@ CSpeedTreeWrapper::~CSpeedTreeWrapper()
 
 		SAFE_DELETE_ARRAY(m_pLeavesUpdatedByCpu);
 		SAFE_DELETE_ARRAY(m_pLeafVertexBuffer);
+		SAFE_DELETE_ARRAY(m_pusLeafVertexCount);
 
 		SAFE_DELETE(m_pTextureInfo);
 
@@ -492,6 +495,9 @@ void CSpeedTreeWrapper::SetupLeafBuffers(void)
 
 	// create array of vertex buffers (one for each LOD)
 	m_pLeafVertexBuffer = new LPDIRECT3DVERTEXBUFFER9[m_usNumLeafLods];
+	m_pusLeafVertexCount = new unsigned short[m_usNumLeafLods];
+	memset (m_pLeafVertexBuffer, 0, sizeof (LPDIRECT3DVERTEXBUFFER9) * m_usNumLeafLods);
+	memset (m_pusLeafVertexCount, 0, sizeof (unsigned short) * m_usNumLeafLods);
 
 	// create array of bools for CPU updating (so we don't update for each instance)
 	m_pLeavesUpdatedByCpu = new bool[m_usNumLeafLods];
@@ -508,8 +514,13 @@ void CSpeedTreeWrapper::SetupLeafBuffers(void)
 		if (usLeafCount < 1)
 			continue;
 
+		m_pusLeafVertexCount[unLod] = usLeafCount;
 		SFVFLeafVertex* pVertexBuffer = nullptr;
-		ms_lpd3dDevice->CreateVertexBuffer(usLeafCount * 6 * sizeof(SFVFLeafVertex), D3DUSAGE_DYNAMIC, D3DFVF_SPEEDTREE_LEAF_VERTEX, D3DPOOL_SYSTEMMEM, &m_pLeafVertexBuffer[unLod], nullptr);
+		if (FAILED (ms_lpd3dDevice->CreateVertexBuffer(usLeafCount * 6 * sizeof(SFVFLeafVertex), D3DUSAGE_DYNAMIC, D3DFVF_SPEEDTREE_LEAF_VERTEX, D3DPOOL_SYSTEMMEM, &m_pLeafVertexBuffer[unLod], nullptr)) || !m_pLeafVertexBuffer[unLod])
+		{
+			m_pusLeafVertexCount[unLod] = 0;
+			continue;
+		}
 		m_pLeafVertexBuffer[unLod]->Lock(0, 0, reinterpret_cast<void**>(&pVertexBuffer), D3DLOCK_DISCARD | D3DLOCK_NOSYSLOCK);
 		SFVFLeafVertex* pVertex = pVertexBuffer;
 		for (UINT unLeaf = 0; unLeaf < usLeafCount; ++unLeaf)
@@ -578,6 +589,7 @@ CSpeedTreeWrapper * CSpeedTreeWrapper::MakeInstance()
 		pInstance->m_unFrondVertexCount = m_unFrondVertexCount;
 
 		pInstance->m_pLeafVertexBuffer = m_pLeafVertexBuffer;
+		pInstance->m_pusLeafVertexCount = m_pusLeafVertexCount;
 		pInstance->m_usNumLeafLods = m_usNumLeafLods;
 		pInstance->m_pLeavesUpdatedByCpu = m_pLeavesUpdatedByCpu;
 
@@ -757,12 +769,15 @@ void CSpeedTreeWrapper::RenderLeaves(void) const
 		const CSpeedTreeRT::SGeometry::SLeaf* pLeaf = (i == 0) ? &m_pGeometryCache->m_sLeaves0 : &m_pGeometryCache->m_sLeaves1;
 		int unLod = pLeaf->m_nDiscreteLodLevel;
 
-		if (pLeaf->m_bIsActive && pLeaf->m_usLeafCount > 0)
+		if (pLeaf->m_bIsActive && pLeaf->m_usLeafCount > 0 && unLod >= 0 && unLod < m_usNumLeafLods && m_pLeafVertexBuffer && m_pLeafVertexBuffer[unLod] && m_pusLeafVertexCount && m_pusLeafVertexCount[unLod] > 0)
 		{
+			const UINT unWriteCount = min ((UINT) pLeaf->m_usLeafCount, (UINT) m_pusLeafVertexCount[unLod]);
 			// update the centers
 			SFVFLeafVertex* pVertex = nullptr;
 			m_pLeafVertexBuffer[unLod]->Lock(0, 0, reinterpret_cast<void**>(&pVertex), D3DLOCK_DISCARD | D3DLOCK_NOSYSLOCK);
-			for (UINT unLeaf = 0; unLeaf < pLeaf->m_usLeafCount; ++unLeaf)
+			if (!pVertex)
+				continue;
+			for (UINT unLeaf = 0; unLeaf < unWriteCount; ++unLeaf)
 			{
 				D3DXVECTOR3 vecCenter(&(pLeaf->m_pCenterCoords[unLeaf * 3]));
 				D3DXVECTOR3 vec0(&pLeaf->m_pLeafMapCoords[unLeaf][0]);
@@ -791,7 +806,7 @@ void CSpeedTreeWrapper::RenderLeaves(void) const
 
 		int unLod = pLeaf->m_nDiscreteLodLevel;
 
-		if (unLod > -1 && pLeaf->m_bIsActive && pLeaf->m_usLeafCount > 0)
+		if (unLod > -1 && unLod < m_usNumLeafLods && m_pLeafVertexBuffer && m_pLeafVertexBuffer[unLod] && pLeaf->m_bIsActive && pLeaf->m_usLeafCount > 0)
 		{
 			STATEMANAGER.SetStreamSource(0, m_pLeafVertexBuffer[unLod], sizeof(SFVFLeafVertex));
 			STATEMANAGER.SetRenderState(D3DRS_ALPHAREF, DWORD(pLeaf->m_fAlphaTestValue));

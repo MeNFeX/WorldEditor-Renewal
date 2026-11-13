@@ -88,6 +88,8 @@ public:
 	void			Initialize(std::string strPath);
 
 	void            SetFlareLocation(double dX, double dY);
+	float			GetLensFlareEX();
+	float			GetLensFlareEY();
 
 	void            SetVisible(bool bState)		{ m_bFlareVisible = bState; }
 	bool			IsVisible() const { return m_bFlareVisible; }

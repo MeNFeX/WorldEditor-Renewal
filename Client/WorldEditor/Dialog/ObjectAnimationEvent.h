@@ -18,6 +18,38 @@
 #include "ObjectAnimationEventWarp.h"
 #include "ObjectAnimationEventEffectToTarget.h"
 
+#ifdef ENABLE_WOLFMAN_CHARACTER
+class CObjectAnimationEventUnk11 : public CObjectAnimationEventBase
+{
+	public:
+		CObjectAnimationEventUnk11 (CWnd * pParent = NULL);
+		BOOL Create (CWnd * pParent, const CRect & c_rRect);
+		void Close();
+		void GetData (CRaceMotionData::TMotionEventData * pMotionEventData);
+		void SetData (const CRaceMotionData::TMotionEventData * c_pMotionEventData);
+
+	protected:
+		enum { IDD = IDD_OBJECT_ANIMATION_EVENT_WARP };
+		CStatic m_staticSpeed;
+		CEdit m_editSpeed;
+		DECLARE_MESSAGE_MAP()
+};
+
+class CObjectAnimationEventUnk12 : public CObjectAnimationEventBase
+{
+	public:
+		CObjectAnimationEventUnk12 (CWnd * pParent = NULL);
+		BOOL Create (CWnd * pParent, const CRect & c_rRect);
+		void Close();
+		void GetData (CRaceMotionData::TMotionEventData * pMotionEventData);
+		void SetData (const CRaceMotionData::TMotionEventData * c_pMotionEventData);
+
+	protected:
+		enum { IDD = IDD_OBJECT_ANIMATION_EVENT_WARP };
+		DECLARE_MESSAGE_MAP()
+};
+#endif
+
 /////////////////////////////////////////////////////////////////////////////
 // CObjectAnimationEvent dialog
 
@@ -82,6 +114,10 @@ class CObjectAnimationEvent : public CDialog
 		CObjectAnimationEventCharacterHide m_EventPageCharacterHide;
 		CObjectAnimationEventWarp m_EventPageWarp;
 		CObjectAnimationEventEffectToTarget m_EventPageEffectToTarget;
+#ifdef ENABLE_WOLFMAN_CHARACTER
+		CObjectAnimationEventUnk11 m_EventPageUnk11;
+		CObjectAnimationEventUnk12 m_EventPageUnk12;
+#endif
 		std::vector<CObjectAnimationEventBase*> m_EventPageVector;
 
 		DWORD m_dwEventType;

@@ -1,5 +1,6 @@
 #include "StdAfx.h"
 #include "Util.h"
+#include <set>
 
 char					g_szProgramPath[PROGRAM_PATH_LENGTH + 1];
 char					g_szProgramWindowPath[PROGRAM_PATH_LENGTH + 1];
@@ -415,4 +416,459 @@ std::string RemoveStartString (const std::string & strOriginal, const std::strin
 		return strOriginal.substr (strBegin.length(), strOriginal.npos);
 	}
 	return strOriginal;
+}
+
+namespace
+{
+	void TrimConfig (std::string & rstr)
+	{
+		while (!rstr.empty() && (rstr.back() == ' ' || rstr.back() == '\t' || rstr.back() == '\r' || rstr.back() == '\n'))
+		{
+			rstr.pop_back();
+		}
+
+		size_t i = 0;
+		while (i < rstr.size() && (rstr[i] == ' ' || rstr[i] == '\t'))
+		{
+			++i;
+		}
+		if (i > 0)
+		{
+			rstr.erase (0, i);
+		}
+	}
+
+	void UnquoteConfig (std::string & rstr)
+	{
+		if (rstr.size() >= 2 && rstr.front() == '"' && rstr.back() == '"')
+		{
+			rstr = rstr.substr (1, rstr.size() - 2);
+		}
+	}
+
+	int ConfigToInt (const std::string & c_rstrValue)
+	{
+		if (_stricmp (c_rstrValue.c_str(), "true") == 0 || _stricmp (c_rstrValue.c_str(), "yes") == 0 || _stricmp (c_rstrValue.c_str(), "on") == 0)
+			return 1;
+		if (_stricmp (c_rstrValue.c_str(), "false") == 0 || _stricmp (c_rstrValue.c_str(), "no") == 0 || _stricmp (c_rstrValue.c_str(), "off") == 0)
+			return 0;
+		return atoi (c_rstrValue.c_str());
+	}
+}
+
+CWorldEditorConfig::CWorldEditorConfig()
+{
+	ApplyDefaults();
+}
+
+CWorldEditorConfig & CWorldEditorConfig::Instance()
+{
+	static CWorldEditorConfig s_kConfig;
+	return s_kConfig;
+}
+
+void CWorldEditorConfig::ApplyDefaults()
+{
+	m_iViewChar = 1;
+	m_iViewShadow = 1;
+	m_iViewWater = 1;
+	m_fWindowFov = 45.0f;
+	m_iWasdMinimalMove = 100;
+	m_iNoGotoAfterInsert = 1;
+	m_iNoMaiAtlasDump = 1;
+	m_iNoMinimapRawAlpha = 1;
+	m_iDetectMdatrHeight = 1;
+	m_iNoFogOnMapLoad = 1;
+	m_iRefreshAllOnUpdateUI = 0;
+	m_iTextureSetSaveAsMapName = 1;
+	m_iRemoveWeirdAttrFlags = 1;
+	m_iViewObjectLighting = 1;
+	m_iViewMonsterAreaInfo = 0;
+	m_fCursorColorR = 0.0f;
+	m_fCursorColorG = 1.0f;
+	m_fCursorColorB = 0.0f;
+	m_fObjectHeightMax = 5000.0f;
+	m_iObjectHeightSliderMax = 3000;
+	m_iAttrSliderRemoval = 1;
+	m_iCenteredWindow = 1;
+	m_iAutoSaveTime = 60;
+	m_iAutoSave = 0;
+	m_iEnablePython = 0;
+	m_fMouseWheelMin = 200.0f;
+	m_fMouseWheelMax = 80000.0f;
+	m_iMaiWithoutMonsterArea = 1;
+	m_iMinimapEffectSnapshot = 0;
+	m_iEnableGr2Animation = 1;
+	m_iCharacterShadowMapSize = 512;
+	m_iEnableNewCompass = 1;
+	m_iEnableObjectHierarchy = 1;
+	m_iIntersectObjectPicking = 0;
+	m_iAutoBackup = 1;
+	m_iAutoBackupSubfolderMode = 0;
+	m_iExportSubfolderMode = 0;
+	m_iEnableAutogenProperty = 1;
+	m_iAutogenPropertyEffect = 1;
+	m_iNewObjectIdFromCrc = 1;
+	m_iEnableTreeRotation = 0;
+	m_strLocale = "EN";
+	m_strAutoBackupFolder = "_backup";
+	m_strExportFolder = "_export";
+	m_strMapNamePrefix = "metin2_map_";
+	m_strTextureSetLoadPath = "textureset\\metin2_a1.txt";
+	m_strMobProtoPath = "locale/ymir/mob_proto";
+}
+
+void CWorldEditorConfig::Load()
+{
+	ApplyDefaults();
+
+	char szExe[MAX_PATH];
+	if (GetModuleFileNameA (NULL, szExe, MAX_PATH))
+	{
+		std::string strDir = szExe;
+		const size_t nSlash = strDir.find_last_of ("\\/");
+		if (nSlash != std::string::npos)
+		{
+			strDir.erase (nSlash);
+			if (LoadFile ((strDir + "\\WorldEditorRemix.ini").c_str()))
+			{
+				return;
+			}
+			if (LoadFile ((strDir + "\\WorldEditor.txt").c_str()))
+			{
+				return;
+			}
+		}
+	}
+
+	if (LoadFile ("WorldEditorRemix.ini"))
+	{
+		return;
+	}
+
+	LoadFile ("WorldEditor.txt");
+}
+
+bool CWorldEditorConfig::LoadFile (const char * c_szPath)
+{
+	FILE * pFile = fopen (c_szPath, "r");
+	if (!pFile)
+	{
+		return false;
+	}
+
+	char szLine[1024];
+	std::set<std::string> kSeenKeys;
+	bool bDuplicate = false;
+	while (fgets (szLine, sizeof (szLine), pFile))
+	{
+		std::string strLine = szLine;
+		bool bQuote = false;
+		size_t nComment = std::string::npos;
+		for (size_t i = 0; i < strLine.size(); ++i)
+		{
+			if (strLine[i] == '"')
+			{
+				bQuote = !bQuote;
+			}
+			else if (!bQuote && (strLine[i] == '#' || strLine[i] == ';'))
+			{
+				nComment = i;
+				break;
+			}
+		}
+		if (nComment != std::string::npos)
+		{
+			strLine.erase (nComment);
+		}
+
+		const size_t nEqual = strLine.find ('=');
+		if (nEqual == std::string::npos)
+		{
+			continue;
+		}
+
+		std::string strKey = strLine.substr (0, nEqual);
+		std::string strValue = strLine.substr (nEqual + 1);
+		TrimConfig (strKey);
+		TrimConfig (strValue);
+		UnquoteConfig (strValue);
+
+		for (size_t i = 0; i < strKey.size(); ++i)
+		{
+			if (strKey[i] >= 'a' && strKey[i] <= 'z')
+			{
+				strKey[i] = (char) (strKey[i] - 'a' + 'A');
+			}
+		}
+
+		if (!kSeenKeys.insert (strKey).second)
+		{
+			if (!bDuplicate)
+			{
+				Tracef ("WorldEditorConfig: Duplicate keys found in %s:\n", c_szPath);
+				bDuplicate = true;
+			}
+			Tracef ("WorldEditorConfig: Warning - duplicate keys detected in %s\n", c_szPath);
+		}
+
+		ApplyKey (strKey, strValue);
+	}
+
+	fclose (pFile);
+	return true;
+}
+
+void CWorldEditorConfig::ApplyKey (const std::string & c_rstrKey, const std::string & c_rstrValue)
+{
+	if (c_rstrKey == "VIEW_CHAR_OUTPUT_BY_DEFAULT")
+	{
+		m_iViewChar = ConfigToInt (c_rstrValue);
+	}
+	else if (c_rstrKey == "VIEW_SHADOW_OUTPUT_BY_DEFAULT")
+	{
+		m_iViewShadow = ConfigToInt (c_rstrValue);
+	}
+	else if (c_rstrKey == "VIEW_WATER_OUTPUT_BY_DEFAULT")
+	{
+		m_iViewWater = ConfigToInt (c_rstrValue);
+	}
+	else if (c_rstrKey == "WINDOW_FOV_SIZE")
+	{
+		m_fWindowFov = (float) atof (c_rstrValue.c_str());
+	}
+	else if (c_rstrKey == "WASD_MINIMAL_MOVE")
+	{
+		m_iWasdMinimalMove = ConfigToInt (c_rstrValue);
+		if (m_iWasdMinimalMove < 1)
+		{
+			m_iWasdMinimalMove = 1;
+		}
+	}
+	else if (c_rstrKey == "NO_GOTO_AFTER_INSERT")
+	{
+		m_iNoGotoAfterInsert = ConfigToInt (c_rstrValue);
+	}
+	else if (c_rstrKey == "NOMAI_ATLAS_DUMP")
+	{
+		m_iNoMaiAtlasDump = ConfigToInt (c_rstrValue);
+	}
+	else if (c_rstrKey == "NOMINIMAP_RAWALPHA")
+	{
+		m_iNoMinimapRawAlpha = ConfigToInt (c_rstrValue);
+	}
+	else if (c_rstrKey == "DETECT_MDATR_HEIGHT")
+	{
+		m_iDetectMdatrHeight = ConfigToInt (c_rstrValue);
+	}
+	else if (c_rstrKey == "NOFOG_ONMAPLOAD")
+	{
+		m_iNoFogOnMapLoad = ConfigToInt (c_rstrValue);
+	}
+	else if (c_rstrKey == "REFRESHALL_ONUPDATEUI")
+	{
+		m_iRefreshAllOnUpdateUI = ConfigToInt (c_rstrValue);
+	}
+	else if (c_rstrKey == "NEW_MAP_MAPNAME_PREFIX")
+	{
+		m_strMapNamePrefix = c_rstrValue;
+	}
+	else if (c_rstrKey == "NEWMAP_TEXTURESETLOADPATH")
+	{
+		m_strTextureSetLoadPath = c_rstrValue;
+	}
+	else if (c_rstrKey == "NEWMAP_TEXTURESETSAVEASMAPNAME")
+	{
+		m_iTextureSetSaveAsMapName = ConfigToInt (c_rstrValue);
+	}
+	else if (c_rstrKey == "SERVERATTR_REMOVE_WEIRD_FLAGS")
+	{
+		m_iRemoveWeirdAttrFlags = ConfigToInt (c_rstrValue);
+	}
+	else if (c_rstrKey == "VIEW_OBJECT_LIGHTING")
+	{
+		m_iViewObjectLighting = ConfigToInt (c_rstrValue);
+	}
+	else if (c_rstrKey == "VIEW_MONSTER_AREA_INFO")
+	{
+		m_iViewMonsterAreaInfo = ConfigToInt (c_rstrValue);
+	}
+	else if (c_rstrKey == "MOB_PROTO_PATH")
+	{
+		if (!c_rstrValue.empty())
+		{
+			m_strMobProtoPath = c_rstrValue;
+		}
+	}
+	else if (c_rstrKey == "RENDER_CURSOR_COLOR_R")
+	{
+		m_fCursorColorR = (float) atof (c_rstrValue.c_str());
+		if (m_fCursorColorR < 0.0f)
+			m_fCursorColorR = 0.0f;
+		if (m_fCursorColorR > 1.0f)
+			m_fCursorColorR = 1.0f;
+	}
+	else if (c_rstrKey == "RENDER_CURSOR_COLOR_G")
+	{
+		m_fCursorColorG = (float) atof (c_rstrValue.c_str());
+		if (m_fCursorColorG < 0.0f)
+			m_fCursorColorG = 0.0f;
+		if (m_fCursorColorG > 1.0f)
+			m_fCursorColorG = 1.0f;
+	}
+	else if (c_rstrKey == "RENDER_CURSOR_COLOR_B")
+	{
+		m_fCursorColorB = (float) atof (c_rstrValue.c_str());
+		if (m_fCursorColorB < 0.0f)
+			m_fCursorColorB = 0.0f;
+		if (m_fCursorColorB > 1.0f)
+			m_fCursorColorB = 1.0f;
+	}
+	else if (c_rstrKey == "OBJECT_HEIGHT_MAX")
+	{
+		m_fObjectHeightMax = (float) atof (c_rstrValue.c_str());
+		if (m_fObjectHeightMax < (float) m_iObjectHeightSliderMax)
+			m_fObjectHeightMax = (float) m_iObjectHeightSliderMax;
+	}
+	else if (c_rstrKey == "OBJECT_HEIGHT_SLIDER_MAX")
+	{
+		m_iObjectHeightSliderMax = ConfigToInt (c_rstrValue);
+		if (m_iObjectHeightSliderMax < 1)
+			m_iObjectHeightSliderMax = 1;
+		if (m_fObjectHeightMax < (float) m_iObjectHeightSliderMax)
+			m_fObjectHeightMax = (float) m_iObjectHeightSliderMax;
+	}
+	else if (c_rstrKey == "ATTR_SLIDER_REMOVAL")
+	{
+		m_iAttrSliderRemoval = ConfigToInt (c_rstrValue);
+	}
+	else if (c_rstrKey == "CENTERED_WINDOW")
+	{
+		m_iCenteredWindow = ConfigToInt (c_rstrValue);
+	}
+	else if (c_rstrKey == "AUTO_SAVE_TIME")
+	{
+		m_iAutoSaveTime = ConfigToInt (c_rstrValue);
+		if (m_iAutoSaveTime < 1)
+			m_iAutoSaveTime = 1;
+		Tracef ("WorldEditorConfig: AUTO_SAVE_TIME %d\n", m_iAutoSaveTime);
+	}
+	else if (c_rstrKey == "AUTO_SAVE")
+	{
+		m_iAutoSave = ConfigToInt (c_rstrValue);
+		Tracef ("WorldEditorConfig: AUTO_SAVE %d\n", m_iAutoSave);
+	}
+	else if (c_rstrKey == "LOCALE")
+	{
+		if (!c_rstrValue.empty())
+			m_strLocale = c_rstrValue;
+		Tracef ("WorldEditorConfig: LOCALE %s\n", m_strLocale.c_str());
+	}
+	else if (c_rstrKey == "ENABLE_PYTHON")
+	{
+		m_iEnablePython = ConfigToInt (c_rstrValue);
+		Tracef ("WorldEditorConfig: ENABLE_PYTHON %d\n", m_iEnablePython);
+	}
+	else if (c_rstrKey == "MOUSE_WHEEL_MIN")
+	{
+		m_fMouseWheelMin = (float) atof (c_rstrValue.c_str());
+		if (m_fMouseWheelMin < 1.0f)
+			m_fMouseWheelMin = 1.0f;
+		Tracef ("WorldEditorConfig: MOUSE_WHEEL_MIN %.f\n", m_fMouseWheelMin);
+	}
+	else if (c_rstrKey == "MOUSE_WHEEL_MAX")
+	{
+		m_fMouseWheelMax = (float) atof (c_rstrValue.c_str());
+		if (m_fMouseWheelMax < m_fMouseWheelMin)
+			m_fMouseWheelMax = m_fMouseWheelMin;
+		Tracef ("WorldEditorConfig: MOUSE_WHEEL_MAX %.f\n", m_fMouseWheelMax);
+	}
+	else if (c_rstrKey == "MAI_IMAGE_WITHOUT_MONSTER_AREA_INFO")
+	{
+		m_iMaiWithoutMonsterArea = ConfigToInt (c_rstrValue);
+		Tracef ("WorldEditorConfig: MAI_IMAGE_WITHOUT_MONSTER_AREA_INFO %d\n", m_iMaiWithoutMonsterArea);
+	}
+	else if (c_rstrKey == "MINIMAP_EFFECT_SNAPSHOT")
+	{
+		m_iMinimapEffectSnapshot = ConfigToInt (c_rstrValue);
+		Tracef ("WorldEditorConfig: MINIMAP_EFFECT_SNAPSHOT %d\n", m_iMinimapEffectSnapshot);
+	}
+	else if (c_rstrKey == "ENABLE_GR2_ANIMATION")
+	{
+		m_iEnableGr2Animation = ConfigToInt (c_rstrValue);
+		Tracef ("WorldEditorConfig: ENABLE_GR2_ANIMATION %d\n", m_iEnableGr2Animation);
+	}
+	else if (c_rstrKey == "CHARACTER_SHADOW_MAP_SIZE")
+	{
+		m_iCharacterShadowMapSize = ConfigToInt (c_rstrValue);
+		if (m_iCharacterShadowMapSize < 64)
+			m_iCharacterShadowMapSize = 64;
+		Tracef ("WorldEditorConfig: CHARACTER_SHADOW_MAP_SIZE %d\n", m_iCharacterShadowMapSize);
+	}
+	else if (c_rstrKey == "ENABLE_NEW_COMPASS")
+	{
+		m_iEnableNewCompass = ConfigToInt (c_rstrValue);
+		Tracef ("WorldEditorConfig: ENABLE_NEW_COMPASS %d\n", m_iEnableNewCompass);
+	}
+	else if (c_rstrKey == "ENABLE_OBJECT_HIERARCHY")
+	{
+		m_iEnableObjectHierarchy = ConfigToInt (c_rstrValue);
+		Tracef ("WorldEditorConfig: ENABLE_OBJECT_HIERARCHY %d\n", m_iEnableObjectHierarchy);
+	}
+	else if (c_rstrKey == "INTERSECT_OBJECT_PICKING")
+	{
+		m_iIntersectObjectPicking = ConfigToInt (c_rstrValue);
+		Tracef ("WorldEditorConfig: INTERSECT_OBJECT_PICKING %d\n", m_iIntersectObjectPicking);
+	}
+	else if (c_rstrKey == "AUTO_BACKUP")
+	{
+		m_iAutoBackup = ConfigToInt (c_rstrValue);
+		Tracef ("WorldEditorConfig: AUTO_BACKUP %d\n", m_iAutoBackup);
+	}
+	else if (c_rstrKey == "AUTO_BACKUP_FOLDER")
+	{
+		if (!c_rstrValue.empty())
+			m_strAutoBackupFolder = c_rstrValue;
+		Tracef ("WorldEditorConfig: AUTO_BACKUP_FOLDER %s\n", m_strAutoBackupFolder.c_str());
+	}
+	else if (c_rstrKey == "AUTO_BACKUP_SUBFOLDER_MODE")
+	{
+		m_iAutoBackupSubfolderMode = ConfigToInt (c_rstrValue);
+		if (m_iAutoBackupSubfolderMode < 0 || m_iAutoBackupSubfolderMode > 3)
+			m_iAutoBackupSubfolderMode = 0;
+		Tracef ("WorldEditorConfig: AUTO_BACKUP_SUBFOLDER_MODE %d\n", m_iAutoBackupSubfolderMode);
+	}
+	else if (c_rstrKey == "EXPORT_FOLDER")
+	{
+		if (!c_rstrValue.empty())
+			m_strExportFolder = c_rstrValue;
+		Tracef ("WorldEditorConfig: EXPORT_FOLDER %s\n", m_strExportFolder.c_str());
+	}
+	else if (c_rstrKey == "EXPORT_SUBFOLDER_MODE")
+	{
+		m_iExportSubfolderMode = ConfigToInt (c_rstrValue);
+		if (m_iExportSubfolderMode < 0 || m_iExportSubfolderMode > 3)
+			m_iExportSubfolderMode = 0;
+		Tracef ("WorldEditorConfig: EXPORT_SUBFOLDER_MODE %d\n", m_iExportSubfolderMode);
+	}
+	else if (c_rstrKey == "ENABLE_AUTOGEN_PROPERTY")
+	{
+		m_iEnableAutogenProperty = ConfigToInt (c_rstrValue);
+		Tracef ("WorldEditorConfig: ENABLE_AUTOGEN_PROPERTY %d\n", m_iEnableAutogenProperty);
+	}
+	else if (c_rstrKey == "AUTOGEN_PROPERTY_EFFECT")
+	{
+		m_iAutogenPropertyEffect = ConfigToInt (c_rstrValue);
+		Tracef ("WorldEditorConfig: AUTOGEN_PROPERTY_EFFECT %d\n", m_iAutogenPropertyEffect);
+	}
+	else if (c_rstrKey == "NEW_OBJECT_ID_FROM_CRC")
+	{
+		m_iNewObjectIdFromCrc = ConfigToInt (c_rstrValue);
+		Tracef ("WorldEditorConfig: NEW_OBJECT_ID_FROM_CRC %d\n", m_iNewObjectIdFromCrc);
+	}
+	else if (c_rstrKey == "ENABLE_TREE_ROTATION")
+	{
+		m_iEnableTreeRotation = ConfigToInt (c_rstrValue);
+		Tracef ("WorldEditorConfig: ENABLE_TREE_ROTATION %d\n", m_iEnableTreeRotation);
+	}
 }

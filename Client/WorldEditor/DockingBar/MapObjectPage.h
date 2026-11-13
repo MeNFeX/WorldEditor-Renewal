@@ -45,6 +45,7 @@ class CMapObjectPage : public CPageCtrl
 		//{{AFX_DATA(CMapObjectPage)
 		enum { IDD = IDD_MAP_OBJECT };
 		CListBox	m_ctrlPortalNumber;
+		CListBox	m_ctrlHierarchy;
 		CStatic	m_StaticSelectedObjectInfo;
 		CSliderCtrl	m_ctrlObjectScale;
 		CSliderCtrl	m_ctrlCursorYaw;
@@ -69,6 +70,7 @@ class CMapObjectPage : public CPageCtrl
 
 		void __RefreshSelectedObjectProperty();
 		void __RefreshSelectedObjectInfo();
+		void __RefreshHierarchy();
 		bool GetCurrentParentItem (HTREEITEM * pTreeItem, const char** c_ppszPathName);
 		int SliderValueToCursorRotation (int iStep, int iCount, int iAmount);
 		int CursorRotationToSliderValue (int iRotation, int iCount, int iAmount);
@@ -86,12 +88,18 @@ class CMapObjectPage : public CPageCtrl
 		afx_msg void OnUnselect();
 		afx_msg void OnInsertPortalNumber();
 		afx_msg void OnDeletePortalNumber();
+		afx_msg void OnResetHeight();
+		afx_msg void OnResetRotation();
+		afx_msg void OnHierarchySelChange();
+		afx_msg void OnContextMenu (CWnd * pWnd, CPoint point);
 		//}}AFX_MSG
 		DECLARE_MESSAGE_MAP()
 
 		// Attributes
 	protected:
 		CImageList m_TreeImageList;
+		std::vector<DWORD> m_kHierarchyIndex;
+		bool m_bHierarchyLock;
 
 		CBitmap m_BitmapBrushCircle;
 		CBitmap m_BitmapBrushSquare;

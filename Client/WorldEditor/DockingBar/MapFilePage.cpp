@@ -13,6 +13,7 @@
 #include "../DataCtrl/MapAccessorOutdoor.h"
 #include "../Dialog/changebasexydlg.h"
 #include "../Dialog/MapPortalDialog.h"
+#include "../Util.h"
 
 #ifdef _DEBUG
 	#define new DEBUG_NEW
@@ -61,8 +62,12 @@ BEGIN_MESSAGE_MAP (CMapFilePage, CPageCtrl)
 	ON_BN_CLICKED (IDC_MAP_FILE_NEW, OnNewMap)
 	ON_BN_CLICKED (IDC_MAP_FILE_LOAD, OnLoadMap)
 	ON_BN_CLICKED (IDC_MAP_FILE_SAVE, OnSaveMap)
+	ON_BN_CLICKED (IDC_MAP_FILE_AUTO_SAVE, OnCheckAutoSave)
+	ON_BN_CLICKED (IDC_MAP_FILE_RELOAD, OnReloadMap)
+	ON_BN_CLICKED (IDC_MAP_FILE_EXPORT, OnExportMap)
 	ON_BN_CLICKED (IDC_MAP_FILE_SAVEAS, OnSaveAsMap)
 	ON_BN_CLICKED (IDC_MAP_FILE_SAVE_COLLISION_DATA, OnSaveCollisionData)
+	ON_BN_CLICKED (IDC_MAP_FILE_SAVE_SERVER_ATTR, OnSaveServerAttr)
 	ON_BN_CLICKED (IDC_MAP_FILE_SAVE_ATTRMAP, OnSaveAttrMap)
 	ON_BN_CLICKED (IDC_BUTTON_GOTO, OnGoto)
 	ON_BN_CLICKED (IDC_MAP_TERRAIN_OPTION_OBJECT_COLLISION, OnCheckOptionObjectCollisionRendering)
@@ -102,13 +107,15 @@ BOOL CMapFilePage::Create (CWnd * pParent)
 
 void CMapFilePage::Initialize()
 {
+	const CWorldEditorConfig & rConfig = CWorldEditorConfig::Instance();
 	CheckDlgButton (IDC_MAP_TERRAIN_OPTION_WIRE_FRAME, FALSE);
 	CheckDlgButton (IDC_CHECK_GRID, FALSE);
 	CheckDlgButton (IDC_CHECK_GRID2, FALSE);
-	CheckDlgButton (IDC_CHECK_CHARACTER, FALSE);
+	CheckDlgButton (IDC_CHECK_CHARACTER, rConfig.ViewChar() ? TRUE : FALSE);
 	CheckDlgButton (IDC_MAP_TERRAIN_OPTION_OBJECT, TRUE);
 	CheckDlgButton (IDC_MAP_TERRAIN_OPTION_OBJECT_COLLISION, FALSE);
-	CheckDlgButton (IDC_MAP_TERRAIN_OPTION_OBJECT_SHADOW, FALSE);
+	CheckDlgButton (IDC_MAP_TERRAIN_OPTION_OBJECT_SHADOW, rConfig.ViewShadow() ? TRUE : FALSE);
+	CheckDlgButton (IDC_CHECK_WATER, rConfig.ViewWater() ? TRUE : FALSE);
 	CheckDlgButton (IDC_MAP_TERRAIN_OPTION_TERRAIN, TRUE);
 	OnCheckOptionWireFrame();
 	OnCheckGrid();
@@ -116,6 +123,10 @@ void CMapFilePage::Initialize()
 	OnCheckCharacterRendering();
 	OnCheckOptionObjectRendering();
 	OnCheckOptionObjectCollisionRendering();
+	OnMapTerrainOptionObjectShadow();
+	OnCheckWater();
+	CheckDlgButton (IDC_CHECK_COMPASS, rConfig.EnableNewCompass() ? TRUE : FALSE);
+	OnCheckCompass();
 }
 
 void CMapFilePage::UpdateUI()
@@ -150,6 +161,7 @@ void CMapFilePage::UpdateUI()
 	SetDlgItemText (IDC_STATIC_BASEY, buf);
 
 	SetDlgItemText (IDC_STATIC_ENVIRONMENT_SET, strEnvironmentDataName.c_str());
+	CheckDlgButton (IDC_MAP_FILE_AUTO_SAVE, pMapManagerAccessor->IsAutoSave() ? 1 : 0);
 }
 
 void CMapFilePage::RunLoadMapEvent()
@@ -235,6 +247,31 @@ void CMapFilePage::OnSaveMap()
 	pMapManagerAccessor->SaveMap();
 }
 
+void CMapFilePage::OnReloadMap()
+{
+	CWorldEditorApp * pApplication = (CWorldEditorApp*) AfxGetApp();
+	CMapManagerAccessor * pMapManagerAccessor = pApplication->GetMapManagerAccessor();
+	if (!pMapManagerAccessor->ReloadCurrentMap())
+		LogBox ("Reload Map failed.");
+}
+
+void CMapFilePage::OnExportMap()
+{
+	CWorldEditorApp * pApplication = (CWorldEditorApp*) AfxGetApp();
+	CMapManagerAccessor * pMapManagerAccessor = pApplication->GetMapManagerAccessor();
+	pMapManagerAccessor->ExportCurrentMap();
+}
+
+void CMapFilePage::OnCheckAutoSave()
+{
+	CWorldEditorApp * pApplication = (CWorldEditorApp*)AfxGetApp();
+	CMapManagerAccessor * pMapManagerAccessor = pApplication->GetMapManagerAccessor();
+	if (!pMapManagerAccessor)
+		return;
+
+	pMapManagerAccessor->SetAutoSave (IsDlgButtonChecked (IDC_MAP_FILE_AUTO_SAVE) == BST_CHECKED);
+}
+
 void CMapFilePage::OnSaveAsMap()
 {
 	CString cstrMap;
@@ -262,6 +299,19 @@ void CMapFilePage::OnSaveCollisionData()
 			CMapManagerAccessor * pMapManagerAccessor = pApplication->GetMapManagerAccessor();
 			pMapManagerAccessor->SaveCollisionData (FileOpener.GetPathName());
 		}
+}
+
+void CMapFilePage::OnSaveServerAttr()
+{
+	CWorldEditorApp * pApplication = (CWorldEditorApp*) AfxGetApp();
+	CMapManagerAccessor * pMapManagerAccessor = pApplication->GetMapManagerAccessor();
+	if (!pMapManagerAccessor || !pMapManagerAccessor->IsMapReady())
+	{
+		LogBox ("[ERROR] Save server_attr: load a map first.");
+		return;
+	}
+
+	pMapManagerAccessor->SaveServerAttr();
 }
 
 void CMapFilePage::OnSaveAttrMap()

@@ -71,13 +71,23 @@ bool CNonPlayerCharacterInfo::LoadNonPlayerData (const char* c_szFileName)
 		return false;
 	}
 
-	TMobTable * pTable = (TMobTable*) zObj.GetBuffer();
-	for (DWORD i = 0; i < dwElements; ++i, ++pTable)
+	const DWORD dwNameBytes = sizeof (DWORD) + CHARACTER_NAME_MAX_LEN + 1;
+	const DWORD dwStride = dwElements ? zObj.GetSize() / dwElements : 0;
+	if (dwElements == 0 || dwStride < dwNameBytes)
+	{
+		TraceError ("CPythonNonPlayer::LoadNonPlayerData: invalid size %u check data format. structSize %u, structDiff %u",
+			zObj.GetSize(), (DWORD) sizeof (TMobTable), dwStride < sizeof (TMobTable) ? (DWORD) sizeof (TMobTable) - dwStride : dwStride - (DWORD) sizeof (TMobTable));
+		delete [] pbData;
+		return false;
+	}
+
+	const BYTE * pBase = zObj.GetBuffer();
+	const DWORD dwCopy = dwStride < sizeof (TMobTable) ? dwStride : (DWORD) sizeof (TMobTable);
+	for (DWORD i = 0; i < dwElements; ++i)
 	{
 		TMobTable * pNonPlayerData = new TMobTable;
-
-		memcpy (pNonPlayerData, pTable, sizeof (TMobTable));
-		//Tracef(" [%d] %s - %d, %d\n", pNonPlayerData->dwVnum, pNonPlayerData->szName, pNonPlayerData->bType, pNonPlayerData->on_click);
+		memset (pNonPlayerData, 0, sizeof (TMobTable));
+		memcpy (pNonPlayerData, pBase + (size_t) i * dwStride, dwCopy);
 		m_NonPlayerDataMap.insert (TNonPlayerDataMap::value_type (pNonPlayerData->dwVnum, pNonPlayerData));
 	}
 

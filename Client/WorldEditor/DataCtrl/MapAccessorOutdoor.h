@@ -212,6 +212,7 @@ class CMapOutdoorAccessor : public CMapOutdoor
 
 		// Reload
 		void ReloadTerrainTextures();
+		bool PrepareNewTextureSet (const char * c_szPath);
 
 		// System Value
 		float GetSplatValue();

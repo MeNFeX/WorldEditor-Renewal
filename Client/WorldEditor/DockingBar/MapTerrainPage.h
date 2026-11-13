@@ -99,6 +99,11 @@ class CMapTerrainPage : public CPageCtrl
 		afx_msg void OnCheckEraserwater();
 		afx_msg void OnItemchangedListTerraintexture (NMHDR* pNMHDR, LRESULT* pResult);
 		afx_msg void OnCheckDrawOnBlankTileOnly();
+		afx_msg void OnButtonWaterSet0();
+		afx_msg void OnButtonWaterPlus();
+		afx_msg void OnButtonWaterMinus();
+		afx_msg void OnButtonChangeTexture();
+		afx_msg void OnButtonRemoveTexture();
 		//}}AFX_MSG
 		DECLARE_MESSAGE_MAP()
 
@@ -111,8 +116,15 @@ class CMapTerrainPage : public CPageCtrl
 
 		CBitmap m_BitmapBrushShapeCircle;
 		CBitmap m_BitmapBrushShapeSquare;
+		CButton m_btnWaterSet0;
+		CButton m_btnWaterPlus;
+		CButton m_btnWaterMinus;
+		CButton m_btnChangeTexture;
+		CButton m_btnRemoveTexture;
 
 		void	LoadList();
+		void	SetWaterHeightZ (int iSlider);
+		void	DeleteOneTexture();
 };
 
 //{{AFX_INSERT_LOCATION}}

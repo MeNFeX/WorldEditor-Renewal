@@ -5,6 +5,26 @@
 #include "../WorldEditor.h"
 #include "MapObjectPage.h"
 #include "../../GameLib/Property.h"
+#include "../Util.h"
+
+static int ObjectHeightSliderCenter()
+{
+	const int iCenter = CWorldEditorConfig::Instance().ObjectHeightSliderMax();
+	return iCenter > 0 ? iCenter : 1;
+}
+
+static void ApplyObjectHeightSlider (CSliderCtrl & rSlider, HWND hWnd, float fHeight)
+{
+	const int iCenter = ObjectHeightSliderCenter();
+	int iPos = int (fHeight) + iCenter;
+	const int iLimit = iCenter * 2;
+	if (iPos < 0)
+		iPos = 0;
+	if (iPos > iLimit)
+		iPos = iLimit;
+	rSlider.SetPos (iPos);
+	SetDialogFloatText (hWnd, IDC_MAP_OBJECT_HEIGHT_PRINT, fHeight / 100.0f);
+}
 
 #ifdef _DEBUG
 	#define new DEBUG_NEW
@@ -20,6 +40,7 @@
 #include "../Dialog/MapObjectProperty.h"
 #include "../Dialog/InputNumber.h"
 #include "../DataCtrl/MapAccessorOutdoor.h"
+#include "../../EterLib/Camera.h"
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -27,7 +48,7 @@
 
 
 CMapObjectPage::CMapObjectPage (CWnd* pParent /*=NULL*/)
-	: CPageCtrl (CMapObjectPage::IDD, pParent)
+	: CPageCtrl (CMapObjectPage::IDD, pParent), m_bHierarchyLock (false)
 {
 	//{{AFX_DATA_INIT(CMapObjectPage)
 	//}}AFX_DATA_INIT
@@ -50,6 +71,7 @@ void CMapObjectPage::DoDataExchange (CDataExchange* pDX)
 	DDX_Control (pDX, IDC_MAP_OBJECT_HEIGHT, m_ctrlObjectHeight);
 	DDX_Control (pDX, IDC_MAP_OBJECT_GRID_DISTANCE, m_ctrlGridDistance);
 	DDX_Control (pDX, IDC_MAP_OBJECT_TREE, m_ctrlPropertyTree);
+	DDX_Control (pDX, IDC_MAP_OBJECT_HIERARCHY, m_ctrlHierarchy);
 	//}}AFX_DATA_MAP
 
 	m_ctrlCursorRoll.SetRangeMin (0);
@@ -65,8 +87,8 @@ void CMapObjectPage::DoDataExchange (CDataExchange* pDX)
 		m_ctrlGridDistance.SetTic (i);
 	}
 	m_ctrlObjectHeight.SetRangeMin (0);
-	m_ctrlObjectHeight.SetRangeMax (6000);
-	m_ctrlObjectHeight.SetTic (3000);
+	m_ctrlObjectHeight.SetRangeMax (ObjectHeightSliderCenter() * 2);
+	m_ctrlObjectHeight.SetTic (ObjectHeightSliderCenter());
 	m_ctrlObjectScale.SetRangeMin (0);
 	m_ctrlObjectScale.SetRangeMax (10000);
 }
@@ -85,6 +107,10 @@ BEGIN_MESSAGE_MAP (CMapObjectPage, CPageCtrl)
 	ON_BN_CLICKED (IDD_MAP_UNSELECT, OnUnselect)
 	ON_BN_CLICKED (IDD_MAP_OBJECT_INSERT_PORTAL_NUMBER, OnInsertPortalNumber)
 	ON_BN_CLICKED (IDD_MAP_OBJECT_DELETE_PORTAL_NUMBER, OnDeletePortalNumber)
+	ON_BN_CLICKED (IDC_MAP_OBJECT_RESET_HEIGHT, OnResetHeight)
+	ON_BN_CLICKED (IDC_MAP_OBJECT_RESET_ROTATION, OnResetRotation)
+	ON_LBN_SELCHANGE (IDC_MAP_OBJECT_HIERARCHY, OnHierarchySelChange)
+	ON_WM_CONTEXTMENU()
 	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
@@ -155,6 +181,8 @@ void CMapObjectPage::Initialize()
 	m_ctrlPropertyTree.SetImageList (&m_TreeImageList, TVSIL_NORMAL);
 
 	LoadProperty();
+	if (!CWorldEditorConfig::Instance().EnableObjectHierarchy())
+		m_ctrlHierarchy.ShowWindow (SW_HIDE);
 
 	// Setting Brush
 	CMainFrame * pFrame = (CMainFrame*)AfxGetMainWnd();
@@ -180,10 +208,9 @@ void CMapObjectPage::Initialize()
 	m_ctrlCursorYaw.SetPos (CArea::YAW_STEP_COUNT / 2);
 	m_ctrlCursorPitch.SetPos (CArea::PITCH_STEP_COUNT / 2);
 	m_ctrlGridDistance.SetPos (iGridDistance);
-	m_ctrlObjectHeight.SetPos (int (fObjectHeight) + 3000);
+	ApplyObjectHeightSlider (m_ctrlObjectHeight, GetSafeHwnd(), fObjectHeight);
 	m_ctrlObjectScale.SetPos (dwObjectScale);
 	SetDialogFloatText (GetSafeHwnd(), IDC_MAP_OBJECT_GRID_DISTANCE_PRINT, float (m_ctrlGridDistance.GetPos() / 10.0f));
-	SetDialogFloatText (GetSafeHwnd(), IDC_MAP_OBJECT_HEIGHT_PRINT, float (m_ctrlObjectHeight.GetPos() - 3000) / 100.0f);
 	SetDialogFloatText (GetSafeHwnd(), IDC_MAP_OBJECT_SCALE_PRINT, float (m_ctrlObjectScale.GetPos()) / 100.0f);
 }
 
@@ -197,10 +224,10 @@ void CMapObjectPage::OnHScroll (UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
 	pSceneMap->SetCursorPitch (SliderValueToCursorRotation (m_ctrlCursorPitch.GetPos(), CArea::PITCH_STEP_COUNT, CArea::PITCH_STEP_AMOUNT));
 	pSceneMap->SetCursorRoll (SliderValueToCursorRotation (m_ctrlCursorRoll.GetPos(), CArea::ROTATION_STEP_COUNT, CArea::ROTATION_STEP_AMOUNT));
 	pSceneMap->SetGridDistance (float (m_ctrlGridDistance.GetPos() * 10));
-	pSceneMap->SetObjectHeight (float (m_ctrlObjectHeight.GetPos() - 3000));
+	pSceneMap->SetObjectHeight (float (m_ctrlObjectHeight.GetPos() - ObjectHeightSliderCenter()));
 	pSceneMap->SetCursorScale (m_ctrlObjectScale.GetPos());
 	SetDialogFloatText (GetSafeHwnd(), IDC_MAP_OBJECT_GRID_DISTANCE_PRINT, float (m_ctrlGridDistance.GetPos() / 10.0f));
-	SetDialogFloatText (GetSafeHwnd(), IDC_MAP_OBJECT_HEIGHT_PRINT, float (m_ctrlObjectHeight.GetPos() - 3000) / 100.0f);
+	SetDialogFloatText (GetSafeHwnd(), IDC_MAP_OBJECT_HEIGHT_PRINT, pSceneMap->GetCursorObjectHeight() / 100.0f);
 	SetDialogFloatText (GetSafeHwnd(), IDC_MAP_OBJECT_SCALE_PRINT, float (m_ctrlObjectScale.GetPos()) / 100.0f);
 
 	CPageCtrl::OnHScroll (nSBCode, nPos, pScrollBar);
@@ -226,14 +253,14 @@ void CMapObjectPage::UpdateUI()
 	m_ctrlCursorYaw.SetPos (CursorRotationToSliderValue (pSceneMap->GetCursorYaw(), CArea::YAW_STEP_COUNT, CArea::YAW_STEP_AMOUNT));
 	m_ctrlCursorPitch.SetPos (CursorRotationToSliderValue (pSceneMap->GetCursorPitch(), CArea::PITCH_STEP_COUNT, CArea::PITCH_STEP_AMOUNT));
 	m_ctrlCursorRoll.SetPos (CursorRotationToSliderValue (pSceneMap->GetCursorRoll(), CArea::ROTATION_STEP_COUNT, CArea::ROTATION_STEP_AMOUNT));
-	m_ctrlObjectHeight.SetPos (int (pSceneMap->GetCursorObjectHeight()) + 3000);
+	ApplyObjectHeightSlider (m_ctrlObjectHeight, GetSafeHwnd(), pSceneMap->GetCursorObjectHeight());
 	m_ctrlObjectScale.SetPos (pSceneMap->GetCursorScale());
 	SetDialogFloatText (GetSafeHwnd(), IDC_MAP_OBJECT_GRID_DISTANCE_PRINT, float (m_ctrlGridDistance.GetPos() / 10.0f));
-	SetDialogFloatText (GetSafeHwnd(), IDC_MAP_OBJECT_HEIGHT_PRINT, float (m_ctrlObjectHeight.GetPos() - 3000) / 100.0f);
 	SetDialogFloatText (GetSafeHwnd(), IDC_MAP_OBJECT_SCALE_PRINT, float (m_ctrlObjectScale.GetPos()) / 100.0f);
 
 	__RefreshSelectedObjectInfo();
 	__RefreshSelectedObjectProperty();
+	__RefreshHierarchy();
 
 	// Cursor
 	const HTREEITEM c_hTreeItem = m_ctrlPropertyTree.GetSelectedItem();
@@ -258,7 +285,10 @@ void CMapObjectPage::__RefreshSelectedObjectInfo()
 
 	// Selected Object Name
 	const char* c_szSelectedObjectName = pOutdoor->GetSelectedObjectName();
-	m_StaticSelectedObjectInfo.SetWindowText (c_szSelectedObjectName);
+	if (!c_szSelectedObjectName || !c_szSelectedObjectName[0])
+		m_StaticSelectedObjectInfo.SetWindowText ("No object selected");
+	else
+		m_StaticSelectedObjectInfo.SetWindowText (c_szSelectedObjectName);
 
 	// Selected Object Portal
 	m_ctrlPortalNumber.ResetContent();
@@ -293,8 +323,7 @@ void CMapObjectPage::__RefreshSelectedObjectProperty()
 		m_ctrlCursorRoll.SetPos (CursorRotationToSliderValue (pData->m_fRoll, CArea::ROTATION_STEP_COUNT, CArea::ROTATION_STEP_AMOUNT));
 
 		// Height Bias - Slider Ctrl, Text Value
-		m_ctrlObjectHeight.SetPos (int (pData->m_fHeightBias + 3000));
-		SetDialogFloatText (GetSafeHwnd(), IDC_MAP_OBJECT_HEIGHT_PRINT, float (m_ctrlObjectHeight.GetPos() - 3000) / 100.0f);
+		ApplyObjectHeightSlider (m_ctrlObjectHeight, GetSafeHwnd(), pData->m_fHeightBias);
 	}
 }
 
@@ -378,10 +407,12 @@ void CMapObjectPage::OnCreateDirectory()
 		return;
 	}
 
-	if (TVI_ROOT != hParentItem)
+	if (TVI_ROOT == hParentItem)
 	{
-		m_ctrlPropertyTree.SelectItem (hParentItem);
+		return;
 	}
+
+	m_ctrlPropertyTree.SelectItem (hParentItem);
 
 	CMapObjectDirectory CreateDirectory;
 
@@ -604,4 +635,109 @@ void CMapObjectPage::OnDeletePortalNumber()
 	}
 
 	pMapManagerAccessor->DelSelectedObjectPortalNumber (c_rkVec_iPortalNumber[dwIndex]);
+}
+
+void CMapObjectPage::OnResetHeight()
+{
+	CMainFrame * pFrame = (CMainFrame*) AfxGetMainWnd();
+	CWorldEditorDoc * pDocument = (CWorldEditorDoc*) pFrame->GetActiveDocument();
+	pDocument->GetMapManagerAccessor()->ResetSelectedObjectHeightToTerrain();
+	pFrame->UpdateMapControlBar();
+}
+
+void CMapObjectPage::OnResetRotation()
+{
+	CMainFrame * pFrame = (CMainFrame*) AfxGetMainWnd();
+	CWorldEditorDoc * pDocument = (CWorldEditorDoc*) pFrame->GetActiveDocument();
+	pDocument->GetMapManagerAccessor()->ResetSelectedObjectRotation();
+	pFrame->UpdateMapControlBar();
+}
+
+void CMapObjectPage::__RefreshHierarchy()
+{
+	if (!CWorldEditorConfig::Instance().EnableObjectHierarchy() || m_bHierarchyLock)
+		return;
+	if (!m_ctrlHierarchy.GetSafeHwnd())
+		return;
+
+	CMainFrame * pFrame = (CMainFrame*) AfxGetMainWnd();
+	CWorldEditorDoc * pDocument = (CWorldEditorDoc*) pFrame->GetActiveDocument();
+	CMapManagerAccessor * pMapManagerAccessor = pDocument->GetMapManagerAccessor();
+	if (!pMapManagerAccessor->IsMapReady())
+		return;
+
+	CMapOutdoorAccessor * pOutdoor = (CMapOutdoorAccessor*) &pMapManagerAccessor->GetMapOutdoorRef();
+	CAreaAccessor * pArea = NULL;
+	if (!pOutdoor->GetAreaAccessor (4, &pArea) || !pArea)
+		return;
+
+	const int iCount = pArea->GetObjectCount();
+	if (m_ctrlHierarchy.GetCount() == iCount)
+		return;
+
+	m_bHierarchyLock = true;
+	m_ctrlHierarchy.ResetContent();
+	m_kHierarchyIndex.clear();
+	for (int i = 0; i < iCount; ++i)
+	{
+		CArea::TObjectData * pData = NULL;
+		if (!pArea->GetObjectPointer ((DWORD) i, &pData))
+			continue;
+		const char * c_szName = "";
+		CProperty * pProperty = NULL;
+		if (CPropertyManager::Instance().Get (pData->dwCRC, &pProperty) && pProperty)
+			c_szName = pProperty->GetFileName();
+		char szLabel[256];
+		_snprintf (szLabel, sizeof (szLabel), "[%d] %s", i, c_szName);
+		m_ctrlHierarchy.AddString (szLabel);
+		m_kHierarchyIndex.push_back ((DWORD) i);
+	}
+	m_bHierarchyLock = false;
+}
+
+void CMapObjectPage::OnHierarchySelChange()
+{
+	if (m_bHierarchyLock)
+		return;
+	const int iSel = m_ctrlHierarchy.GetCurSel();
+	if (iSel < 0 || iSel >= (int) m_kHierarchyIndex.size())
+		return;
+
+	CMainFrame * pFrame = (CMainFrame*) AfxGetMainWnd();
+	CWorldEditorDoc * pDocument = (CWorldEditorDoc*) pFrame->GetActiveDocument();
+	CMapManagerAccessor * pMapManagerAccessor = pDocument->GetMapManagerAccessor();
+	pMapManagerAccessor->CancelSelect();
+	pMapManagerAccessor->SelectObject ((int) m_kHierarchyIndex[iSel]);
+	pFrame->UpdateMapControlBar();
+}
+
+void CMapObjectPage::OnContextMenu (CWnd * pWnd, CPoint point)
+{
+	if (!CWorldEditorConfig::Instance().EnableObjectHierarchy())
+		return;
+	if (pWnd != &m_ctrlHierarchy)
+		return;
+	CPoint kLocal = point;
+	m_ctrlHierarchy.ScreenToClient (&kLocal);
+	BOOL bOutside = FALSE;
+	const UINT nItem = m_ctrlHierarchy.ItemFromPoint (kLocal, bOutside);
+	if (bOutside || nItem >= m_kHierarchyIndex.size())
+		return;
+
+	CMainFrame * pFrame = (CMainFrame*) AfxGetMainWnd();
+	CWorldEditorDoc * pDocument = (CWorldEditorDoc*) pFrame->GetActiveDocument();
+	CMapManagerAccessor * pMapManagerAccessor = pDocument->GetMapManagerAccessor();
+	if (!pMapManagerAccessor->IsMapReady())
+		return;
+	CMapOutdoorAccessor * pOutdoor = (CMapOutdoorAccessor*) &pMapManagerAccessor->GetMapOutdoorRef();
+	CAreaAccessor * pArea = NULL;
+	if (!pOutdoor->GetAreaAccessor (4, &pArea) || !pArea)
+		return;
+	CArea::TObjectData * pData = NULL;
+	if (!pArea->GetObjectPointer (m_kHierarchyIndex[nItem], &pData))
+		return;
+	CCamera * pCamera = CCameraManager::Instance().GetCurrentCamera();
+	if (!pCamera)
+		return;
+	pCamera->SetTarget (D3DXVECTOR3 (pData->Position.x, pData->Position.y, pData->Position.z + pData->m_fHeightBias));
 }

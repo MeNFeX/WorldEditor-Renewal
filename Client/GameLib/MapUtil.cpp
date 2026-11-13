@@ -38,10 +38,13 @@ void Environment_Init(SEnvironmentData& envData)
 	envData.byFilteringAlphaSrc = D3DBLEND_ONE;
 	envData.byFilteringAlphaDest = D3DBLEND_ONE;
 
+	envData.bWindEnable = TRUE;
 	envData.fWindStrength = 0.2f;
 	envData.fWindRandom = 0.0f;
 
 	envData.v3SkyBoxScale = D3DXVECTOR3(3500.0f, 3500.0f, 3500.0f);
+	for (int iFace = 0; iFace < 6; ++iFace)
+		envData.strSkyBoxFaceFileName[iFace].clear();
 	envData.bySkyBoxGradientLevelUpper = 0;
 	envData.bySkyBoxGradientLevelLower = 0;
 	envData.bSkyBoxTextureRenderMode = FALSE;
@@ -65,6 +68,7 @@ void Environment_Init(SEnvironmentData& envData)
 	envData.fMainFlareSize = 0.2f;
 
 	envData.bReserve = FALSE;
+	envData.fScriptVersion = 1.0f;
 }
 
 bool Environment_Load(SEnvironmentData& envData, const char* envFileName)
@@ -74,9 +78,11 @@ bool Environment_Load(SEnvironmentData& envData, const char* envFileName)
 	if (!textLoader.Load(envFileName))
 		return false;
 
+	Environment_Init(envData);
 	textLoader.SetTop();
 
 	textLoader.GetTokenBoolean("reserved", &envData.bReserve);
+	textLoader.GetTokenFloat("scriptversion", &envData.fScriptVersion);
 
 	if (textLoader.SetChildNode("directionallight"))
 	{
@@ -119,6 +125,14 @@ bool Environment_Load(SEnvironmentData& envData, const char* envFileName)
 		textLoader.GetTokenFloat("neardistance", &envData.m_fFogNearDistance);
 		textLoader.GetTokenFloat("fardistance", &envData.m_fFogFarDistance);
 		textLoader.GetTokenColor("color", &envData.FogColor);
+		textLoader.SetParentNode();
+	}
+
+	if (textLoader.SetChildNode("wind"))
+	{
+		textLoader.GetTokenBoolean("enable", &envData.bWindEnable);
+		textLoader.GetTokenFloat("strength", &envData.fWindStrength);
+		textLoader.GetTokenFloat("random", &envData.fWindRandom);
 		textLoader.SetParentNode();
 	}
 

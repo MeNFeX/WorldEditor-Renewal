@@ -29,6 +29,10 @@ class CRaceMotionDataAccessor : public CRaceMotionData
 		DWORD MakeEventCharacterHide();
 		DWORD MakeEventWarp();
 		DWORD MakeEventEffectToTarget();
+#ifdef ENABLE_WOLFMAN_CHARACTER
+		DWORD MakeEventUnk11();
+		DWORD MakeEventUnk12();
+#endif
 		BOOL GetMotionEventDataPointer (DWORD dwIndex, TMotionEventData** ppData);
 
 		void MovePosition (DWORD dwIndex, float fTime);

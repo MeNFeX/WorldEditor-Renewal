@@ -1,11 +1,13 @@
 #include "StdAfx.h"
 #include "../WorldEditor.h"
+#include "../Util.h"
 #include "MapAccessorTerrain.h"
 #include "MapAccessorOutdoor.h"
 #include <fcntl.h>
 //#include <dxtlib.h>
 #include <il/il.h>
 #include <il/ilu.h>
+#include <math.h>
 
 //////////////////////////////////////////////////////////////////////////
 // CTerrainAccessor
@@ -354,26 +356,44 @@ void CTerrainAccessor::DrawWaterBrush (DWORD dwBrushShape,
 	Left = lCellX - byBrushSize;
 	Top = lCellY - byBrushSize;
 
-	BYTE byWaterID;
+	BYTE byWaterID = 0xFF;
 
-	if (MAX_WATER_NUM <= m_byNumWater)
+	if (!bErase)
 	{
-		//		Tracef("더이상 물을 추가할 수 없습니다.\n");
-		//		return;
-	}
-	else
-	{
-		BYTE byi;
-		for (byi = 0; byi < MAX_WATER_NUM; byi++)
+		for (BYTE byi = 0; byi <= MAX_WATER_NUM; ++byi)
 		{
-			if (-1 == m_lWaterHeight[byi])
+			if (m_lWaterHeight[byi] == (long) wWaterHeight)
 			{
+				byWaterID = byi;
 				break;
 			}
 		}
-		byWaterID = byi;
-		m_lWaterHeight[byi] = wWaterHeight;
-		++m_byNumWater;
+
+		if (0xFF == byWaterID)
+		{
+			BYTE byEmpty = 0xFF;
+			for (BYTE byi = 0; byi <= MAX_WATER_NUM; ++byi)
+			{
+				if (-1 == m_lWaterHeight[byi])
+				{
+					byEmpty = byi;
+					break;
+				}
+			}
+
+			if (0xFF == byEmpty)
+			{
+				LogBox ("You cannot put more water here. (256 kinds of water with different height?)");
+				return;
+			}
+
+			byWaterID = byEmpty;
+			m_lWaterHeight[byEmpty] = wWaterHeight;
+			if (m_byNumWater < MAX_WATER_NUM)
+			{
+				++m_byNumWater;
+			}
+		}
 	}
 
 	if (bErase)
@@ -514,6 +534,49 @@ void CTerrainAccessor::DrawWaterBrush (DWORD dwBrushShape,
 	RAW_UpdateAttrSplat();
 }
 
+namespace
+{
+	bool gs_bGaussianCubic = false;
+
+	float HeightBrushDistance (DWORD dwBrushShape, float fdx, float fdy)
+	{
+		if (CTerrainAccessor::BRUSH_SHAPE_SQUARE == dwBrushShape)
+		{
+			return max (fabsf (fdx), fabsf (fdy));
+		}
+		return sqrtf (fdx * fdx + fdy * fdy);
+	}
+
+	long HeightBrushDelta (float fDist, BYTE byBrushSize, BYTE byBrushStrength)
+	{
+		if (!gs_bGaussianCubic)
+		{
+			long lDelta = (long) (((float) byBrushSize * (float) byBrushSize - fDist * fDist) * (float) byBrushStrength / 16.0f);
+			return lDelta > 0 ? lDelta : 0;
+		}
+
+		float fT = (byBrushSize > 0) ? fDist / (float) byBrushSize : 1.0f;
+		if (fT > 1.0f)
+		{
+			fT = 1.0f;
+		}
+		const float fCubic = (1.0f - fT) * (1.0f - fT) * (1.0f + 2.0f * fT);
+		const float fWeight = expf (-3.0f * fT * fT) * fCubic;
+		long lDelta = (long) ((float) byBrushSize * (float) byBrushStrength * fWeight);
+		return lDelta > 0 ? lDelta : 0;
+	}
+}
+
+void CTerrainAccessor::SetGaussianCubic (bool bOn)
+{
+	gs_bGaussianCubic = bOn;
+}
+
+bool CTerrainAccessor::IsGaussianCubic()
+{
+	return gs_bGaussianCubic;
+}
+
 void CTerrainAccessor::UpTerrain (DWORD dwBrushShape, long x, long y, BYTE byBrushSize, BYTE byBrushStrength)
 {
 	long cx, cy;
@@ -543,15 +606,11 @@ void CTerrainAccessor::UpTerrain (DWORD dwBrushShape, long x, long y, BYTE byBru
 				continue;
 			}
 
-			dist = sqrtf (((float)x2 - (float)cx) * ((float)x2 - (float)cx) + ((float)y2 - (float)cy) * ((float)y2 - (float)cy));
+			dist = HeightBrushDistance (dwBrushShape, (float) x2 - (float) cx, (float) y2 - (float) cy);
 
 			if (dist < byBrushSize)
 			{
-				delta = (long) (((float) byBrushSize * (float) byBrushSize - dist * dist) * (float) byBrushStrength / 16.0f);
-				if (delta <= 0)
-				{
-					delta = 0;
-				}
+				delta = HeightBrushDelta (dist, byBrushSize, byBrushStrength);
 
 				hgt = (long)GetHeightMapValue (x2, y2);
 				hgt += delta;
@@ -599,15 +658,11 @@ void CTerrainAccessor::DownTerrain (DWORD dwBrushShape, long x, long y, BYTE byB
 				continue;
 			}
 
-			dist = sqrtf (((float)x2 - (float)cx) * ((float)x2 - (float)cx) + ((float)y2 - (float)cy) * ((float)y2 - (float)cy));
+			dist = HeightBrushDistance (dwBrushShape, (float) x2 - (float) cx, (float) y2 - (float) cy);
 
 			if (dist < byBrushSize)
 			{
-				delta = (long) (((float) byBrushSize * (float) byBrushSize - dist * dist) * (float) byBrushStrength / 16.0f);
-				if (delta <= 0)
-				{
-					delta = 0;
-				}
+				delta = HeightBrushDelta (dist, byBrushSize, byBrushStrength);
 
 				hgt = (long)GetHeightMapValue (x2, y2);
 				hgt -= delta;
@@ -1515,7 +1570,51 @@ bool CTerrainAccessor::SaveMiniMapFromD3DTexture9 (const std::string & c_rstrMap
 		_snprintf (szDDSFileName, MAX_PATH, "%s\\%06u\\minimap.dds", c_rstrMapName.c_str(), ulID);
 
 		DeleteFile (szDDSFileName);
-		D3DXSaveTextureToFile (szDDSFileName, D3DXIFF_DDS, lpMiniMapTexture, NULL);
+		if (CWorldEditorConfig::Instance().NoMinimapRawAlpha())
+		{
+			LPDIRECT3DDEVICE9 pDevice = NULL;
+			LPDIRECT3DTEXTURE9 pOpaque = NULL;
+			if (SUCCEEDED (lpMiniMapTexture->GetDevice (&pDevice)) && pDevice)
+			{
+				D3DSURFACE_DESC kDesc;
+				if (SUCCEEDED (lpMiniMapTexture->GetLevelDesc (0, &kDesc)) &&
+					SUCCEEDED (D3DXCreateTexture (pDevice, kDesc.Width, kDesc.Height, 1, 0, D3DFMT_X8R8G8B8, D3DPOOL_MANAGED, &pOpaque)) &&
+					pOpaque)
+				{
+					LPDIRECT3DSURFACE9 pSrc = NULL;
+					LPDIRECT3DSURFACE9 pDst = NULL;
+					lpMiniMapTexture->GetSurfaceLevel (0, &pSrc);
+					pOpaque->GetSurfaceLevel (0, &pDst);
+					if (pSrc && pDst)
+					{
+						D3DXLoadSurfaceFromSurface (pDst, NULL, NULL, pSrc, NULL, NULL, D3DX_FILTER_NONE, 0);
+					}
+					if (pSrc)
+					{
+						pSrc->Release();
+					}
+					if (pDst)
+					{
+						pDst->Release();
+					}
+					D3DXSaveTextureToFile (szDDSFileName, D3DXIFF_DDS, pOpaque, NULL);
+					pOpaque->Release();
+				}
+				else
+				{
+					D3DXSaveTextureToFile (szDDSFileName, D3DXIFF_DDS, lpMiniMapTexture, NULL);
+				}
+				pDevice->Release();
+			}
+			else
+			{
+				D3DXSaveTextureToFile (szDDSFileName, D3DXIFF_DDS, lpMiniMapTexture, NULL);
+			}
+		}
+		else
+		{
+			D3DXSaveTextureToFile (szDDSFileName, D3DXIFF_DDS, lpMiniMapTexture, NULL);
+		}
 
 		//////////////////////////////////////////////////////////////////////////
 		// DDS (DXT1, Mipmap)로 저장
@@ -1731,11 +1830,14 @@ bool CTerrainAccessor::RAW_LoadAndSaveDefaultAttrMap (const std::string & c_rstr
 
 	LoadAttrMap (szAttrMapName);
 
-	for (DWORD dwY = 0; dwY < ATTRMAP_YSIZE; ++dwY)
+	if (!CWorldEditorConfig::Instance().AttrSliderRemoval())
 	{
-		for (DWORD dwX = 0; dwX < ATTRMAP_XSIZE; ++dwX)
+		for (DWORD dwY = 0; dwY < ATTRMAP_YSIZE; ++dwY)
 		{
-			m_abyAttrMap[dwY * ATTRMAP_XSIZE + dwX] &= ~0xF0;
+			for (DWORD dwX = 0; dwX < ATTRMAP_XSIZE; ++dwX)
+			{
+				m_abyAttrMap[dwY * ATTRMAP_XSIZE + dwX] &= ~0xF0;
+			}
 		}
 	}
 

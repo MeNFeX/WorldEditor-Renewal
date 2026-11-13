@@ -142,3 +142,124 @@ extern void RenderBackGroundTile();
 extern void DestroyBackGroundData();
 
 extern std::string RemoveStartString (const std::string & strOriginal, const std::string & strBegin);
+
+enum
+{
+	IDC_WE_WATER_SET0 = 45110,
+	IDC_WE_WATER_PLUS = 45111,
+	IDC_WE_WATER_MINUS = 45112,
+	IDC_WE_TEXTURE_CHANGE = 45113,
+	IDC_WE_TEXTURE_REMOVE = 45114,
+	IDC_WE_NEWMAP_TEXTURESET = 45115,
+	IDC_WE_UNK11_SPEED = 45116,
+};
+
+class CWorldEditorConfig
+{
+	public:
+		static CWorldEditorConfig & Instance();
+
+		void Load();
+
+		int ViewChar() const { return m_iViewChar; }
+		int ViewShadow() const { return m_iViewShadow; }
+		int ViewWater() const { return m_iViewWater; }
+		float WindowFov() const { return m_fWindowFov; }
+		int WasdMinimalMove() const { return m_iWasdMinimalMove; }
+		bool NoGotoAfterInsert() const { return m_iNoGotoAfterInsert != 0; }
+		bool NoMaiAtlasDump() const { return m_iNoMaiAtlasDump != 0; }
+		bool NoMinimapRawAlpha() const { return m_iNoMinimapRawAlpha != 0; }
+		bool DetectMdatrHeight() const { return m_iDetectMdatrHeight != 0; }
+		bool NoFogOnMapLoad() const { return m_iNoFogOnMapLoad != 0; }
+		bool RefreshAllOnUpdateUI() const { return m_iRefreshAllOnUpdateUI != 0; }
+		const std::string & MapNamePrefix() const { return m_strMapNamePrefix; }
+		const std::string & TextureSetLoadPath() const { return m_strTextureSetLoadPath; }
+		bool TextureSetSaveAsMapName() const { return m_iTextureSetSaveAsMapName != 0; }
+		bool RemoveWeirdAttrFlags() const { return m_iRemoveWeirdAttrFlags != 0; }
+		bool ViewObjectLighting() const { return m_iViewObjectLighting != 0; }
+		bool ViewMonsterAreaInfo() const { return m_iViewMonsterAreaInfo != 0; }
+		const std::string & MobProtoPath() const { return m_strMobProtoPath; }
+		float CursorColorR() const { return m_fCursorColorR; }
+		float CursorColorG() const { return m_fCursorColorG; }
+		float CursorColorB() const { return m_fCursorColorB; }
+		float ObjectHeightMax() const { return m_fObjectHeightMax; }
+		int ObjectHeightSliderMax() const { return m_iObjectHeightSliderMax; }
+		bool AttrSliderRemoval() const { return m_iAttrSliderRemoval != 0; }
+		bool CenteredWindow() const { return m_iCenteredWindow != 0; }
+		int AutoSaveTime() const { return m_iAutoSaveTime; }
+		bool AutoSave() const { return m_iAutoSave != 0; }
+		const std::string & Locale() const { return m_strLocale; }
+		bool EnablePython() const { return m_iEnablePython != 0; }
+		float MouseWheelMin() const { return m_fMouseWheelMin; }
+		float MouseWheelMax() const { return m_fMouseWheelMax; }
+		bool MaiImageWithoutMonsterAreaInfo() const { return m_iMaiWithoutMonsterArea != 0; }
+		bool MinimapEffectSnapshot() const { return m_iMinimapEffectSnapshot != 0; }
+		bool EnableGr2Animation() const { return m_iEnableGr2Animation != 0; }
+		int CharacterShadowMapSize() const { return m_iCharacterShadowMapSize; }
+		bool EnableNewCompass() const { return m_iEnableNewCompass != 0; }
+		bool EnableObjectHierarchy() const { return m_iEnableObjectHierarchy != 0; }
+		bool IntersectObjectPicking() const { return m_iIntersectObjectPicking != 0; }
+		bool AutoBackup() const { return m_iAutoBackup != 0; }
+		const std::string & AutoBackupFolder() const { return m_strAutoBackupFolder; }
+		int AutoBackupSubfolderMode() const { return m_iAutoBackupSubfolderMode; }
+		const std::string & ExportFolder() const { return m_strExportFolder; }
+		int ExportSubfolderMode() const { return m_iExportSubfolderMode; }
+		bool EnableAutogenProperty() const { return m_iEnableAutogenProperty != 0; }
+		bool AutogenPropertyEffect() const { return m_iAutogenPropertyEffect != 0; }
+		bool NewObjectIdFromCrc() const { return m_iNewObjectIdFromCrc != 0; }
+		bool EnableTreeRotation() const { return m_iEnableTreeRotation != 0; }
+
+	private:
+		CWorldEditorConfig();
+		void ApplyDefaults();
+		bool LoadFile (const char * c_szPath);
+		void ApplyKey (const std::string & c_rstrKey, const std::string & c_rstrValue);
+
+		int m_iViewChar;
+		int m_iViewShadow;
+		int m_iViewWater;
+		float m_fWindowFov;
+		int m_iWasdMinimalMove;
+		int m_iNoGotoAfterInsert;
+		int m_iNoMaiAtlasDump;
+		int m_iNoMinimapRawAlpha;
+		int m_iDetectMdatrHeight;
+		int m_iNoFogOnMapLoad;
+		int m_iRefreshAllOnUpdateUI;
+		int m_iTextureSetSaveAsMapName;
+		int m_iRemoveWeirdAttrFlags;
+		int m_iViewObjectLighting;
+		int m_iViewMonsterAreaInfo;
+		float m_fCursorColorR;
+		float m_fCursorColorG;
+		float m_fCursorColorB;
+		float m_fObjectHeightMax;
+		int m_iObjectHeightSliderMax;
+		int m_iAttrSliderRemoval;
+		int m_iCenteredWindow;
+		int m_iAutoSaveTime;
+		int m_iAutoSave;
+		int m_iEnablePython;
+		int m_iMaiWithoutMonsterArea;
+		int m_iMinimapEffectSnapshot;
+		int m_iEnableGr2Animation;
+		int m_iCharacterShadowMapSize;
+		int m_iEnableNewCompass;
+		int m_iEnableObjectHierarchy;
+		int m_iIntersectObjectPicking;
+		int m_iAutoBackup;
+		int m_iAutoBackupSubfolderMode;
+		int m_iExportSubfolderMode;
+		int m_iEnableAutogenProperty;
+		int m_iAutogenPropertyEffect;
+		int m_iNewObjectIdFromCrc;
+		int m_iEnableTreeRotation;
+		float m_fMouseWheelMin;
+		float m_fMouseWheelMax;
+		std::string m_strLocale;
+		std::string m_strAutoBackupFolder;
+		std::string m_strExportFolder;
+		std::string m_strMapNamePrefix;
+		std::string m_strTextureSetLoadPath;
+		std::string m_strMobProtoPath;
+};

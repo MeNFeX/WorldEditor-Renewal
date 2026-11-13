@@ -184,6 +184,12 @@ void CEffectMeshInstance::OnSetDataPointer(CEffectElementBase * pElement)
 	m_pMeshScript = pMesh;
 
 	const char * c_szMeshFileName = pMesh->GetMeshFileName();
+	if (!c_szMeshFileName || !c_szMeshFileName[0] || !CResourceManager::Instance().IsFileExist(c_szMeshFileName))
+	{
+		TraceError("The file [%s] is not a model or doesn't exist", c_szMeshFileName ? c_szMeshFileName : "");
+		m_pEffectMesh = nullptr;
+		return;
+	}
 
 	m_pEffectMesh = (CEffectMesh *) CResourceManager::Instance().GetResourcePointer(c_szMeshFileName);
 

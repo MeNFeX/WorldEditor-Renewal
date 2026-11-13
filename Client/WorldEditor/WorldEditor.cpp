@@ -10,9 +10,15 @@
 
 #include "DataCtrl/NonPlayerCharacterInfo.h"
 #include "../EterLib/Camera.h"
+#include "Util.h"
+#include <sys/stat.h>
 
 #include <SpeedTreeRT.h>
+#include "../GameLib/MapOutdoor.h"
+#include "../SpeedTreeLib/SpeedTreeWrapper.h"
+#include "DataCtrl/ShadowRenderHelper.h"
 
+#pragma comment(lib, "dbghelp.lib")
 #pragma comment(linker, "/NODEFAULTLIB:libci.lib")
 
 #pragma comment( lib, "python27.lib" )
@@ -129,8 +135,55 @@ void PackInitialize (const char* c_pszFolder)
 	CSoundData::SetPackMode();	// Miles 파일 콜백을 셋팅해 줘야 한다.
 }
 
+static LONG WINAPI WorldEditorWriteCrashDump (EXCEPTION_POINTERS * pInfo)
+{
+	char szExe[MAX_PATH];
+	std::string strDir;
+	std::string strName = "WorldEditor";
+	if (GetModuleFileNameA (NULL, szExe, MAX_PATH))
+	{
+		strDir = szExe;
+		const size_t nSlash = strDir.find_last_of ("\\/");
+		if (nSlash != std::string::npos)
+		{
+			strName = strDir.substr (nSlash + 1);
+			strDir.erase (nSlash);
+			const size_t nDot = strName.rfind ('.');
+			if (nDot != std::string::npos)
+			{
+				strName.erase (nDot);
+			}
+		}
+	}
+
+	const std::string strLogs = strDir.empty() ? std::string ("logs") : strDir + "\\logs";
+	CreateDirectoryA (strLogs.c_str(), NULL);
+
+	SYSTEMTIME st;
+	GetLocalTime (&st);
+	char szDump[MAX_PATH];
+	_snprintf (szDump, MAX_PATH, "%s\\WorldEditorRemix_%s_%04u%02u%02u_%02u%02u%02u.dmp",
+		strLogs.c_str(), strName.c_str(),
+		st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond);
+
+	HANDLE hFile = CreateFileA (szDump, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	if (hFile != INVALID_HANDLE_VALUE)
+	{
+		MINIDUMP_EXCEPTION_INFORMATION kInfo;
+		kInfo.ThreadId = GetCurrentThreadId();
+		kInfo.ExceptionPointers = pInfo;
+		kInfo.ClientPointers = FALSE;
+		MiniDumpWriteDump (GetCurrentProcess(), GetCurrentProcessId(), hFile, MiniDumpNormal, &kInfo, NULL, NULL);
+		CloseHandle (hFile);
+	}
+
+	return EXCEPTION_EXECUTE_HANDLER;
+}
+
 BOOL CWorldEditorApp::InitInstance()
 {
+	SetUnhandledExceptionFilter (WorldEditorWriteCrashDump);
+
 	#ifdef _DEBUG
 	OpenConsoleWindow();
 	OpenLogFile();
@@ -174,21 +227,75 @@ BOOL CWorldEditorApp::InitInstance()
 	////////////////////////////////////////////////////////////////////
 	//// Specialize Code Start
 	// NOTE : PropertyManager에 USE_PACK 모드인지 설정한다. - [levites]
-	if (CEterPackManager::SEARCH_FILE_FIRST == CEterPackManager::Instance().GetSearchMode())
-	{
-		CPropertyManager::Instance().Initialize (NULL);
-	}
-	else
-	{
-		CPropertyManager::Instance().Initialize ("pack/property");
-	}
-
-	CNonPlayerCharacterInfo::Instance().LoadNonPlayerData ("locale/en/mob_proto");
-	//CNonPlayerCharacterInfo::Instance().LoadNPCGroupData("group.txt");
-
 	getcwd (g_szProgramPath, PROGRAM_PATH_LENGTH);
 	getcwd (g_szProgramWindowPath, PROGRAM_PATH_LENGTH);
 	StringPath (g_szProgramPath);
+	CWorldEditorConfig::Instance().Load();
+	CMapOutdoor::SetViewObjectLighting (CWorldEditorConfig::Instance().ViewObjectLighting());
+	CSpeedTreeWrapper::SetRotationEnabled (CWorldEditorConfig::Instance().EnableTreeRotation());
+	{
+		int iShadowSize = CWorldEditorConfig::Instance().CharacterShadowMapSize();
+		int iPower = 0;
+		while (iShadowSize > 1)
+		{
+			iShadowSize >>= 1;
+			++iPower;
+		}
+		CShadowRenderHelper::Instance().SetShadowMapPower ((BYTE) iPower);
+	}
+	{
+		const std::string strLocale = CWorldEditorConfig::Instance().Locale();
+		if (!strLocale.empty() && _stricmp (strLocale.c_str(), "EN") != 0)
+		{
+			char szExe[MAX_PATH];
+			if (GetModuleFileNameA (NULL, szExe, MAX_PATH))
+			{
+				std::string strDll = szExe;
+				const size_t nSlash = strDll.find_last_of ("\\/");
+				if (nSlash != std::string::npos)
+					strDll.erase (nSlash);
+				strDll += "\\WorldEditorRemix_" + strLocale + ".dll";
+				HMODULE hLocale = LoadLibraryA (strDll.c_str());
+				if (!hLocale)
+					Tracef ("Language Pack %s not loaded\n", strLocale.c_str());
+				else
+					AfxSetResourceHandle (hLocale);
+			}
+		}
+	}
+	{
+		CFrameWnd * pFrame = (CFrameWnd*) AfxGetMainWnd();
+		if (pFrame)
+		{
+			CWorldEditorDoc * pDoc = (CWorldEditorDoc*) pFrame->GetActiveDocument();
+			if (pDoc)
+				pDoc->GetMapManagerAccessor()->SetAutoSave (CWorldEditorConfig::Instance().AutoSave());
+		}
+	}
+
+	struct _stat kPackPropertyStat;
+	if (0 == _stat ("pack/property", &kPackPropertyStat) ||
+		0 == _stat ("pack/property.epk", &kPackPropertyStat) ||
+		0 == _stat ("pack/property.eix", &kPackPropertyStat))
+	{
+		CPropertyManager::Instance().Initialize ("pack/property");
+		Tracef ("Property loaded from %s\n", "pack/property");
+	}
+	else
+	{
+		CPropertyManager::Instance().Initialize (NULL);
+	}
+
+	const std::string strMobProto = CWorldEditorConfig::Instance().MobProtoPath();
+	if (!CNonPlayerCharacterInfo::Instance().LoadNonPlayerData (strMobProto.c_str()))
+	{
+		TraceError ("The file [%s] doesn't exist", strMobProto.c_str());
+		if (strMobProto != "locale/en/mob_proto")
+		{
+			CNonPlayerCharacterInfo::Instance().LoadNonPlayerData ("locale/en/mob_proto");
+		}
+	}
+	CNonPlayerCharacterInfo::Instance().LoadNPCGroupData ("group.txt");
 
 	m_GraphicDevice.Create (m_pMainWnd->GetSafeHwnd(), 1024, 768);
 	CreateUtilData();
@@ -208,6 +315,22 @@ BOOL CWorldEditorApp::InitInstance()
 	////////////////////////////////////////////////////////////////////
 
 	m_pMainWnd->ShowWindow (SW_SHOW);
+	if (CWorldEditorConfig::Instance().CenteredWindow())
+	{
+		CRect rcWindow;
+		m_pMainWnd->GetWindowRect (&rcWindow);
+		RECT rcWork;
+		if (!SystemParametersInfo (SPI_GETWORKAREA, 0, &rcWork, 0))
+		{
+			rcWork.left = 0;
+			rcWork.top = 0;
+			rcWork.right = GetSystemMetrics (SM_CXSCREEN);
+			rcWork.bottom = GetSystemMetrics (SM_CYSCREEN);
+		}
+		const int iX = rcWork.left + ((rcWork.right - rcWork.left) - rcWindow.Width()) / 2;
+		const int iY = rcWork.top + ((rcWork.bottom - rcWork.top) - rcWindow.Height()) / 2;
+		m_pMainWnd->SetWindowPos (NULL, iX, iY, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+	}
 	m_pMainWnd->UpdateWindow();
 
 	/////

@@ -151,6 +151,7 @@ typedef struct SEnvironmentData
 	BYTE byFilteringAlphaDest;
 
 	// Wind
+	BOOL bWindEnable;
 	float fWindStrength;
 	float fWindRandom;
 
@@ -182,6 +183,8 @@ typedef struct SEnvironmentData
 	float fMainFlareSize;
 
 	BOOL bReserve;
+
+	float fScriptVersion;
 } TEnvironmentData;
 
 typedef std::map<DWORD, TEnvironmentData*> TEnvironmentDataMap;

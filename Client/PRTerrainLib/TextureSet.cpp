@@ -24,8 +24,6 @@ void CTextureSet::Create()
 
 bool CTextureSet::Load(const char * c_szTextureSetFileName, float fTerrainTexCoordBase)
 {
-	Clear();
-
 	CTokenVectorMap stTokenVectorMap;
 
 	if (!LoadMultipleTextData(c_szTextureSetFileName, stTokenVectorMap))
@@ -46,6 +44,7 @@ bool CTextureSet::Load(const char * c_szTextureSetFileName, float fTerrainTexCoo
 		return false;
 	}
 
+	Clear();
 	Create();
 
 	const std::string & c_rstrCount = stTokenVectorMap["texturecount"][0];

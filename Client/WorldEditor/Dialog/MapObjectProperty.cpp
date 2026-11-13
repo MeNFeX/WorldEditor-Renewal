@@ -43,7 +43,7 @@ void CMapObjectProperty::DoDataExchange (CDataExchange* pDX)
 	m_ctrlPropertyTypeList.InsertString (prt::PROPERTY_TYPE_BUILDING, "Building");
 	m_ctrlPropertyTypeList.InsertString (prt::PROPERTY_TYPE_EFFECT, "Effect");
 	m_ctrlPropertyTypeList.InsertString (prt::PROPERTY_TYPE_AMBIENCE, "Ambience");
-	m_ctrlPropertyTypeList.InsertString (prt::PROPERTY_TYPE_DUNGEON_BLOCK, "Dugeon Block");
+	m_ctrlPropertyTypeList.InsertString (prt::PROPERTY_TYPE_DUNGEON_BLOCK, "Dungeon Block");
 	m_ctrlPropertyTypeList.SelectString (-1, "None");
 }
 

@@ -208,51 +208,68 @@ BOOL CMapManagerAccessor::GetSkyBoxGradientColorPointer (DWORD dwIndex, TGradien
 
 void CMapManagerAccessor::InsertGradientUpper()
 {
-	std::vector<TGradientColor> TempGradientVector;
-
-	++m_EnvironmentData.bySkyBoxGradientLevelUpper;
-	TempGradientVector = m_EnvironmentData.SkyBoxGradientColorVector;
-
-	m_EnvironmentData.SkyBoxGradientColorVector.clear();
-	m_EnvironmentData.SkyBoxGradientColorVector.resize (m_EnvironmentData.bySkyBoxGradientLevelUpper + m_EnvironmentData.bySkyBoxGradientLevelLower);
-
-	for (DWORD i = 0; i < TempGradientVector.size(); ++i)
+	if (m_EnvironmentData.bySkyBoxGradientLevelUpper == 255)
 	{
-		m_EnvironmentData.SkyBoxGradientColorVector[i] = TempGradientVector[i];
+		return;
 	}
 
-	m_EnvironmentData.SkyBoxGradientColorVector[m_EnvironmentData.bySkyBoxGradientLevelUpper - 1].m_FirstColor = TColor (0.0f, 0.0f, 0.0f, 0.0f);
-	m_EnvironmentData.SkyBoxGradientColorVector[m_EnvironmentData.bySkyBoxGradientLevelUpper - 1].m_SecondColor = TColor (0.0f, 0.0f, 0.0f, 0.0f);
+	const DWORD dwOldUpper = m_EnvironmentData.bySkyBoxGradientLevelUpper;
+	const DWORD dwLower = m_EnvironmentData.bySkyBoxGradientLevelLower;
+	const std::vector<TGradientColor> kOld = m_EnvironmentData.SkyBoxGradientColorVector;
 
-	for (DWORD j = 0; j < m_EnvironmentData.bySkyBoxGradientLevelLower; ++j)
+	m_EnvironmentData.bySkyBoxGradientLevelUpper = (BYTE) (dwOldUpper + 1);
+	m_EnvironmentData.SkyBoxGradientColorVector.resize (dwOldUpper + 1 + dwLower);
+
+	for (DWORD i = 0; i < dwOldUpper && i < kOld.size(); ++i)
 	{
-		m_EnvironmentData.SkyBoxGradientColorVector[m_EnvironmentData.bySkyBoxGradientLevelUpper + j] = TempGradientVector[ (m_EnvironmentData.bySkyBoxGradientLevelUpper - 1) + j];
+		m_EnvironmentData.SkyBoxGradientColorVector[i] = kOld[i];
+	}
+
+	TGradientColor & rkNew = m_EnvironmentData.SkyBoxGradientColorVector[dwOldUpper];
+	rkNew.m_FirstColor = TColor (0.0f, 0.0f, 0.0f, 0.0f);
+	rkNew.m_SecondColor = TColor (0.0f, 0.0f, 0.0f, 0.0f);
+
+	for (DWORD j = 0; j < dwLower; ++j)
+	{
+		const DWORD dwSrc = dwOldUpper + j;
+		if (dwSrc < kOld.size())
+		{
+			m_EnvironmentData.SkyBoxGradientColorVector[dwOldUpper + 1 + j] = kOld[dwSrc];
+		}
 	}
 }
 
 void CMapManagerAccessor::InsertGradientLower()
 {
-	std::vector<TGradientColor> TempGradientVector;
-
-	++m_EnvironmentData.bySkyBoxGradientLevelLower;
-	TempGradientVector = m_EnvironmentData.SkyBoxGradientColorVector;
-
-	m_EnvironmentData.SkyBoxGradientColorVector.clear();
-	m_EnvironmentData.SkyBoxGradientColorVector.resize (m_EnvironmentData.bySkyBoxGradientLevelUpper + m_EnvironmentData.bySkyBoxGradientLevelLower);
-
-	for (DWORD i = 0; i < TempGradientVector.size(); ++i)
+	if (m_EnvironmentData.bySkyBoxGradientLevelLower == 255)
 	{
-		m_EnvironmentData.SkyBoxGradientColorVector[i] = TempGradientVector[i];
-	}
-	for (DWORD j = 0; j < m_EnvironmentData.bySkyBoxGradientLevelLower; ++j)
-	{
-		m_EnvironmentData.SkyBoxGradientColorVector[m_EnvironmentData.bySkyBoxGradientLevelUpper + j] = TempGradientVector[m_EnvironmentData.bySkyBoxGradientLevelUpper + j];
+		return;
 	}
 
-	m_EnvironmentData.SkyBoxGradientColorVector[m_EnvironmentData.bySkyBoxGradientLevelUpper + m_EnvironmentData.bySkyBoxGradientLevelLower - 1].m_FirstColor = TColor (0.0f, 0.0f,
-		0.0f, 0.0f);
-	m_EnvironmentData.SkyBoxGradientColorVector[m_EnvironmentData.bySkyBoxGradientLevelUpper + m_EnvironmentData.bySkyBoxGradientLevelLower - 1].m_SecondColor = TColor (0.0f,
-		0.0f, 0.0f, 0.0f);
+	const DWORD dwUpper = m_EnvironmentData.bySkyBoxGradientLevelUpper;
+	const DWORD dwOldLower = m_EnvironmentData.bySkyBoxGradientLevelLower;
+	const std::vector<TGradientColor> kOld = m_EnvironmentData.SkyBoxGradientColorVector;
+
+	m_EnvironmentData.bySkyBoxGradientLevelLower = (BYTE) (dwOldLower + 1);
+	m_EnvironmentData.SkyBoxGradientColorVector.resize (dwUpper + dwOldLower + 1);
+
+	for (DWORD i = 0; i < dwUpper && i < kOld.size(); ++i)
+	{
+		m_EnvironmentData.SkyBoxGradientColorVector[i] = kOld[i];
+	}
+
+	for (DWORD j = 0; j < dwOldLower; ++j)
+	{
+		const DWORD dwSrc = dwUpper + j;
+		if (dwSrc < kOld.size())
+		{
+			m_EnvironmentData.SkyBoxGradientColorVector[dwUpper + j] = kOld[dwSrc];
+		}
+	}
+
+	TGradientColor & rkNew = m_EnvironmentData.SkyBoxGradientColorVector[dwUpper + dwOldLower];
+	rkNew.m_FirstColor = TColor (0.0f, 0.0f, 0.0f, 0.0f);
+	rkNew.m_SecondColor = TColor (0.0f, 0.0f, 0.0f, 0.0f);
 }
 
 void CMapManagerAccessor::DeleteGradient (DWORD dwIndex)
@@ -322,12 +339,17 @@ float& CMapManagerAccessor::GetMainFlareSizeReference()
 
 void CMapManagerAccessor::LoadEnvironmentScript (const char* c_szFileName)
 {
-	LoadEnvironmentData (c_szFileName, &m_EnvironmentData);
+	const TEnvironmentData kPrevious = m_EnvironmentData;
+	if (!LoadEnvironmentData (c_szFileName, &m_EnvironmentData))
+	{
+		m_EnvironmentData = kPrevious;
+		LogBoxf ("Environment not loaded [%s]. The previous environment stays.", c_szFileName);
+	}
 }
 
 void CMapManagerAccessor::SaveEnvironmentScript (const char* c_szFileName)
 {
-	const float c_fEnvironment_Script_Version = 1.0f;
+	const float c_fEnvironment_Script_Version = m_EnvironmentData.fScriptVersion > 0.0f ? m_EnvironmentData.fScriptVersion : 1.0f;
 
 	SetFileAttributes (c_szFileName, FILE_ATTRIBUTE_NORMAL);
 	FILE * File = fopen (c_szFileName, "w");
@@ -336,7 +358,7 @@ void CMapManagerAccessor::SaveEnvironmentScript (const char* c_szFileName)
 		return;
 	}
 
-	fprintf (File, "ScriptType         EnvrionmentData\n");
+	fprintf (File, "ScriptType         EnvironmentData\n");
 	fprintf (File, "ScriptVersion      %.4f\n", c_fEnvironment_Script_Version);
 	fprintf (File, "\n");
 
@@ -387,6 +409,14 @@ void CMapManagerAccessor::SaveEnvironmentScript (const char* c_szFileName)
 	PrintfTabs (File, 1, "NearDistance  %f\n", m_EnvironmentData.m_fFogNearDistance);
 	PrintfTabs (File, 1, "FarDistance   %f\n", m_EnvironmentData.m_fFogFarDistance);
 	PrintfTabs (File, 1, "Color         %f %f %f %f\n", m_EnvironmentData.FogColor.r, m_EnvironmentData.FogColor.g, m_EnvironmentData.FogColor.b, m_EnvironmentData.FogColor.a);
+	PrintfTabs (File, 0, "}\n");
+	PrintfTabs (File, 0, "\n");
+
+	PrintfTabs (File, 0, "Group Wind\n");
+	PrintfTabs (File, 0, "{\n");
+	PrintfTabs (File, 1, "Enable        %d\n", m_EnvironmentData.bWindEnable);
+	PrintfTabs (File, 1, "Strength      %f\n", m_EnvironmentData.fWindStrength);
+	PrintfTabs (File, 1, "Random        %f\n", m_EnvironmentData.fWindRandom);
 	PrintfTabs (File, 0, "}\n");
 	PrintfTabs (File, 0, "\n");
 
@@ -495,8 +525,10 @@ void CMapManagerAccessor::InitializeEnvironmentData()
 	m_EnvironmentData.m_fFogNearDistance = 20000.0f;
 	m_EnvironmentData.m_fFogFarDistance = 50000.0f;
 
+	m_EnvironmentData.bWindEnable = TRUE;
 	m_EnvironmentData.fWindStrength = 0.2f;
 	m_EnvironmentData.fWindRandom = 0.0f;
+	m_EnvironmentData.fScriptVersion = 1.0f;
 
 	m_EnvironmentData.bFilteringEnable = FALSE;
 	m_EnvironmentData.FilteringColor = D3DXCOLOR (0.3f, 0.1f, 0.1f, 0.0f);

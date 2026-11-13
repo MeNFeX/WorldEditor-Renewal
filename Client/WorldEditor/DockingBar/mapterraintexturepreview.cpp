@@ -5,6 +5,7 @@
 #include "../WorldEditor.h"
 #include "mapterraintexturepreview.h"
 #include "../DataCtrl/MapAccessorTerrain.h"
+#include "../../EterLib/ResourceManager.h"
 
 #ifdef _DEBUG
 	#define new DEBUG_NEW
@@ -73,6 +74,12 @@ void CMapTerrainTexturePreview::UpdatePreview (int nTexNum)
 	{
 		CGraphicImageInstance & rImageInstance = pTextureSet->GetTexture (nTexNum).ImageInstance;
 		CGraphicImage * pImage = rImageInstance.GetGraphicImagePointer();
+		if (!pImage || !pImage->GetFileName() || !pImage->GetFileName()[0] || !CResourceManager::Instance().IsFileExist (pImage->GetFileName()))
+		{
+			TraceError ("The file [%s] doesn't exist", (pImage && pImage->GetFileName()) ? pImage->GetFileName() : "");
+			ilClearImage();
+			return;
+		}
 		ilLoadImage ((const ILstring)pImage->GetFileName());
 		iluScale (m_DIB.GetWidth(), m_DIB.GetHeight(), 1);
 		Invalidate (TRUE);

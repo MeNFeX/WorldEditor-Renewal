@@ -2,11 +2,13 @@
 //
 
 #include "StdAfx.h"
+#include <math.h>
 #include "WorldEditor.h"
 #include "WorldEditorDoc.h"
 #include "WorldEditorView.h"
 #include "MainFrm.h"
 #include "DataCtrl/MapAccessorOutdoor.h"
+#include "Util.h"
 
 #ifdef _DEBUG
 	#define new DEBUG_NEW
@@ -145,10 +147,10 @@ BOOL CMainFrame::CreateStatusBar()
 	int iWidth;
 
 	m_wndStatusBar.GetPaneInfo (1, uiID, uiStyle, iWidth);
-	m_wndStatusBar.SetPaneInfo (1, uiID, uiStyle, 150);
+	m_wndStatusBar.SetPaneInfo (1, uiID, uiStyle, 260);
 
 	m_wndStatusBar.GetPaneInfo (2, uiID, uiStyle, iWidth);
-	m_wndStatusBar.SetPaneInfo (2, uiID, uiStyle, 100);
+	m_wndStatusBar.SetPaneInfo (2, uiID, uiStyle, 250);
 	return TRUE;
 }
 
@@ -303,17 +305,25 @@ void CMainFrame::UpdateStatusBar (float fx, float fy, float fz)
 	CString strPixelPosition;
 	CString strAreaPosition;
 
-	strPixelPosition.Format ("%.2f / %.2f / %.2f", fx / 100.0f, fy / 100.0f, fz / 100.0f);
+	strPixelPosition.Format ("Global Position: %.0f, %.0f", fx, fy);
 
-	CWorldEditorDoc * pDocument = (CWorldEditorDoc*) GetActiveDocument();
-	CMapManagerAccessor * pMapManagerAccessor = pDocument->GetMapManagerAccessor();
-
-	if (pMapManagerAccessor && pMapManagerAccessor->IsMapOutdoor())
+	const float fTerrainX = (float) CTerrainImpl::TERRAIN_XSIZE;
+	const float fTerrainY = (float) CTerrainImpl::TERRAIN_YSIZE;
+	float fLocalX = fx;
+	float fLocalY = fy;
+	if (fTerrainX > 0.0f)
 	{
-		CMapOutdoor & rMapOutdoor = pMapManagerAccessor->GetMapOutdoorRef();
-		const TOutdoorMapCoordinate c_OutdoorMapCoordinate = rMapOutdoor.GetCurCoordinate();
-		strAreaPosition.Format ("%u / %u", c_OutdoorMapCoordinate.m_sTerrainCoordX, c_OutdoorMapCoordinate.m_sTerrainCoordY);
+		fLocalX = fx - fTerrainX * floorf (fx / fTerrainX);
+		if (fLocalX < 0.0f)
+			fLocalX += fTerrainX;
 	}
+	if (fTerrainY > 0.0f)
+	{
+		fLocalY = fy - fTerrainY * floorf (fy / fTerrainY);
+		if (fLocalY < 0.0f)
+			fLocalY += fTerrainY;
+	}
+	strAreaPosition.Format ("Local Position: %.0f, %.0f", fLocalX, fLocalY);
 
 	pStatusBar->SetPaneText (1, strPixelPosition, TRUE);
 	pStatusBar->SetPaneText (2, strAreaPosition, TRUE);
@@ -384,6 +394,15 @@ void CMainFrame::UpdateMapControlBar()
 
 	int iMode = m_wndMapCtrlBar.UpdatePage();
 	pDocument->m_SceneMap.SetEditingMode (iMode);
+
+	if (CWorldEditorConfig::Instance().RefreshAllOnUpdateUI())
+	{
+		CMapManagerAccessor * pMapManagerAccessor = pDocument->GetMapManagerAccessor();
+		if (pMapManagerAccessor && pMapManagerAccessor->IsMapReady())
+		{
+			pMapManagerAccessor->RefreshArea();
+		}
+	}
 }
 
 void CMainFrame::OnUndo()

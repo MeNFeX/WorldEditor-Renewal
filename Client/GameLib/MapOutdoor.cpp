@@ -8,6 +8,10 @@
 #include "TerrainPatch.h"
 #include "AreaTerrain.h"
 
+#ifdef WORLD_EDITOR
+int CMapOutdoor::ms_iTextureCountColorMode = 0;
+#endif
+
 struct FGetObjectHeight
 {
 	bool m_bHeightFound;
@@ -64,6 +68,10 @@ struct FGetPickingPoint
 };
 
 // #define ENABLE_FOG_LOAD
+#ifdef WORLD_EDITOR
+bool CMapOutdoor::ms_bViewObjectLighting = true;
+#endif
+
 CMapOutdoor::CMapOutdoor()
 {
 #ifdef ENABLE_FOG_LOAD
@@ -176,6 +184,8 @@ bool CMapOutdoor::Initialize()
 	m_dwBaseY = 0;
 
 	m_settings_envDataName = "";
+	m_strSpecialWaterPath = "d:/ymir Work/special/water";
+	m_dwSpecialWaterCount = 30;
 	m_bShowEntirePatchTextureCount = false;
 	m_bTransparentTree = true;
 
@@ -262,13 +272,21 @@ void CMapOutdoor::OnBeginEnvironment()
 		mc_pEnvironmentData->GetFogFarDistance()
 	);
 
-	const D3DLIGHT9& c_rkLight = mc_pEnvironmentData->DirLights[ENV_DIRLIGHT_CHARACTER];
+	D3DLIGHT9 kObjectLight = mc_pEnvironmentData->DirLights[ENV_DIRLIGHT_CHARACTER];
+#ifdef WORLD_EDITOR
+	if (!ms_bViewObjectLighting)
+	{
+		kObjectLight.Diffuse.r = 0.0f;
+		kObjectLight.Diffuse.g = 0.0f;
+		kObjectLight.Diffuse.b = 0.0f;
+	}
+#endif
 	rkForest.SetLight(
-		(const float *)&c_rkLight.Direction,
-		(const float *)&c_rkLight.Ambient,
-		(const float *)&c_rkLight.Diffuse);
+		(const float *)&kObjectLight.Direction,
+		(const float *)&kObjectLight.Ambient,
+		(const float *)&kObjectLight.Diffuse);
 
-	rkForest.SetWindStrength(mc_pEnvironmentData->fWindStrength);
+	rkForest.SetWindStrength(mc_pEnvironmentData->bWindEnable ? mc_pEnvironmentData->fWindStrength : 0.0f);
 }
 
 void CMapOutdoor::OnSetEnvironmentDataPtr()

@@ -52,6 +52,14 @@ DWORD CRaceMotionDataAccessor::MakeEvent (int iEventType)
 		case MOTION_EVENT_TYPE_EFFECT_TO_TARGET:
 			return MakeEventEffectToTarget();
 			break;
+#ifdef ENABLE_WOLFMAN_CHARACTER
+		case MOTION_EVENT_TYPE_UNK11:
+			return MakeEventUnk11();
+			break;
+		case MOTION_EVENT_TYPE_UNK12:
+			return MakeEventUnk12();
+			break;
+#endif
 		default:
 			assert (!" CRaceMotionDataAccessor::MakeEvent - Strange Event Index!");
 			Tracef (" CRaceMotionDataAccessor::MakeEvent - Strange Event Index!\n");
@@ -192,6 +200,34 @@ DWORD CRaceMotionDataAccessor::MakeEventEffectToTarget()
 
 	return dwIndex;
 }
+
+#ifdef ENABLE_WOLFMAN_CHARACTER
+DWORD CRaceMotionDataAccessor::MakeEventUnk11()
+{
+	TMotionUnk11EventData * pData = new TMotionUnk11EventData;
+
+	pData->iType = MOTION_EVENT_TYPE_UNK11;
+	pData->iAniSpeed = 0;
+
+	DWORD dwIndex = m_MotionEventDataVector.size();
+	m_MotionEventDataVector.push_back (pData);
+
+	return dwIndex;
+}
+
+DWORD CRaceMotionDataAccessor::MakeEventUnk12()
+{
+	TMotionUnk12EventData * pData = new TMotionUnk12EventData;
+
+	pData->iType = MOTION_EVENT_TYPE_UNK12;
+	pData->iAniSpeed = 0;
+
+	DWORD dwIndex = m_MotionEventDataVector.size();
+	m_MotionEventDataVector.push_back (pData);
+
+	return dwIndex;
+}
+#endif
 
 BOOL CRaceMotionDataAccessor::GetMotionEventDataPointer (DWORD dwIndex, TMotionEventData** ppData)
 {

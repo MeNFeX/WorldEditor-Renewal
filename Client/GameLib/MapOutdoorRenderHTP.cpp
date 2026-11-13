@@ -276,6 +276,40 @@ void CMapOutdoor::__HardwareTransformPatch_RenderPatchSplat(long patchnum, WORD 
 
 	int iPrevRenderedSplatNum=m_iRenderedSplatNum;
 
+#ifdef WORLD_EDITOR
+	bool bTextureCountTint = false;
+	if (CMapOutdoor::GetTextureCountColorMode() > 0)
+	{
+		int iUsedTexture = 0;
+		for (DWORD j = 1; j < pTerrain->GetNumTextures(); ++j)
+		{
+			if (rTerrainSplatPatch.Splats[j].Active && rTerrainSplatPatch.PatchTileCount[sPatchNum][j] > 0)
+				++iUsedTexture;
+		}
+
+		if (iUsedTexture >= CMapOutdoor::GetTextureCountColorMode())
+		{
+			static const DWORD adwTextureCountColor[7] =
+			{
+				0,
+				0xFF20C020,
+				0xFFFFFF20,
+				0xFFFF8020,
+				0xFFFF2020,
+				0xFFFF20FF,
+				0xFFFFFFFF,
+			};
+			int iColor = CMapOutdoor::GetTextureCountColorMode();
+			if (iColor > 6)
+				iColor = 6;
+			STATEMANAGER.SaveTextureStageState(0, D3DTSS_COLORARG2, D3DTA_TFACTOR);
+			STATEMANAGER.SaveTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
+			STATEMANAGER.SaveRenderState(D3DRS_TEXTUREFACTOR, adwTextureCountColor[iColor]);
+			bTextureCountTint = true;
+		}
+	}
+#endif
+
 	bool isFirst=true;
 	for (DWORD j = 1; j < pTerrain->GetNumTextures(); ++j)
 	{
@@ -315,6 +349,15 @@ void CMapOutdoor::__HardwareTransformPatch_RenderPatchSplat(long patchnum, WORD 
 			break;
 
 	}
+
+#ifdef WORLD_EDITOR
+	if (bTextureCountTint)
+	{
+		STATEMANAGER.RestoreRenderState(D3DRS_TEXTUREFACTOR);
+		STATEMANAGER.RestoreTextureStageState(0, D3DTSS_COLOROP);
+		STATEMANAGER.RestoreTextureStageState(0, D3DTSS_COLORARG2);
+	}
+#endif
 
 	if (m_bDrawShadow)
 	{

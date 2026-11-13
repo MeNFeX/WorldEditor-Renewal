@@ -862,6 +862,8 @@ void CArea::__SetObjectInstance_SetTree(TObjectInstance * pObjectInstance, const
 		c_pData->dwCRC,
 		c_szTreeName
 	);
+	if (pObjectInstance->pTree && CSpeedTreeWrapper::IsRotationEnabled())
+		pObjectInstance->pTree->SetRotation(c_pData->m_fYaw, c_pData->m_fPitch, c_pData->m_fRoll);
 }
 
 void CArea::TObjectInstance::SetTree(float x, float y, float z, DWORD dwTreeCRC, const char* c_szTreeName)

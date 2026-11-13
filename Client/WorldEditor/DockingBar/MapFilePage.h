@@ -56,8 +56,12 @@ class CMapFilePage : public CPageCtrl
 		afx_msg void OnNewMap();
 		afx_msg void OnLoadMap();
 		afx_msg void OnSaveMap();
+		afx_msg void OnCheckAutoSave();
+		afx_msg void OnReloadMap();
+		afx_msg void OnExportMap();
 		afx_msg void OnSaveAsMap();
 		afx_msg void OnSaveCollisionData();
+		afx_msg void OnSaveServerAttr();
 		afx_msg void OnSaveAttrMap();
 		afx_msg void OnGoto();
 		afx_msg void OnCheckOptionObjectCollisionRendering();

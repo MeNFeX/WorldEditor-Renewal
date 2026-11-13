@@ -993,12 +993,22 @@ void CMeshAccessor::LoadMeshInstance()
 		m_pEffectMesh = NULL;
 	}
 
-	if (m_strMeshFileName.empty())
+	if (m_strMeshFileName.empty() || !CResourceManager::Instance().IsFileExist (m_strMeshFileName.c_str()))
 	{
+		if (!m_strMeshFileName.empty())
+		{
+			TraceError ("The file [%s] is not a model or doesn't exist", m_strMeshFileName.c_str());
+		}
+		ReserveMeshData (0);
 		return;
 	}
 
 	m_pEffectMesh = (CEffectMesh*) CResourceManager::Instance().GetResourcePointer (m_strMeshFileName.c_str());
+	if (!m_pEffectMesh)
+	{
+		ReserveMeshData (0);
+		return;
+	}
 	m_pEffectMesh->AddReference();
 
 	ReserveMeshData (m_pEffectMesh->GetMeshCount());

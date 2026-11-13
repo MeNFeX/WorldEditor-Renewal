@@ -17,6 +17,8 @@ class CNewMapDlg : public CDialog
 		CString	m_StringName;
 		UINT	m_uiSizeX;
 		UINT	m_uiSizeY;
+		CEdit	m_editTextureSet;
+		CStatic	m_staticTextureSet;
 		//}}AFX_DATA
 
 

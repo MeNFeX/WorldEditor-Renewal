@@ -1,6 +1,7 @@
 #include "StdAfx.h"
 #include "ViewportManager.h"
 #include "../EterLib/Camera.h"
+#include "Util.h"
 
 #include "MainFrm.h"
 #include "WorldEditorDoc.h"
@@ -82,8 +83,10 @@ void CViewportManager::MouseWheel (float Wheel)
 		Wheel *= 2.0f;
 	}
 
+	const float fMin = CWorldEditorConfig::Instance().MouseWheelMin();
+	const float fMax = CWorldEditorConfig::Instance().MouseWheelMax();
 	float fDistance = CCameraManager::Instance().GetCurrentCamera()->GetDistance();
-	fDistance = min (max (fDistance - Wheel * 2.0f, 200.0f), 80000.0f);
+	fDistance = min (max (fDistance - Wheel * 2.0f, fMin), fMax);
 	CCameraManager::Instance().GetCurrentCamera()->SetDistance (fDistance);
 }
 
@@ -97,35 +100,15 @@ void CViewportManager::MouseMove (CPoint Mouse)
 {
 	CCamera * pCurrentCamera = CCameraManager::Instance().GetCurrentCamera();
 
-	CMainFrame* mainFrame = (CMainFrame*)AfxGetApp()->m_pMainWnd;
-	CWorldEditorDoc* doc = (CWorldEditorDoc*)mainFrame->GetActiveView()->GetDocument();
-
 	if (m_ClickedLeftButton)
 	{
-		bool bLockRotation = false;
+		float fRoll, fPitch;
+		fRoll =  - (m_ClickedLeftButtonPoint.x - Mouse.x) * 0.3f;
+		fPitch = max (- pCurrentCamera->GetPitch() - 89.9f, min (89.9f - pCurrentCamera->GetPitch(), - (m_ClickedLeftButtonPoint.y - Mouse.y) * 0.3f));
 
-		// 맵의 속성이나 Light 방향 세팅중이라면 일단은 카메라 회전을 막되, 왼쪽 Control키를 누르고 있다면 예전처럼 작동하도록 한다.
-		if (doc->IsEditingMapAttribute() || doc->IsEditingDirectionalLight())
-		{
-			bLockRotation = true;
+		pCurrentCamera->RotateEyeAroundTarget (fPitch, fRoll);
 
-			if (GetAsyncKeyState (VK_LCONTROL) & 0x8000)
-			{
-				bLockRotation = false;
-			}
-		}
-
-		//		if (RotationMode == m_Mode)
-		if (false == bLockRotation)
-		{
-			float fRoll, fPitch;
-			fRoll =  - (m_ClickedLeftButtonPoint.x - Mouse.x) * 0.3f;
-			fPitch = max (- pCurrentCamera->GetPitch() - 89.9f, min (89.9f - pCurrentCamera->GetPitch(), - (m_ClickedLeftButtonPoint.y - Mouse.y) * 0.3f));
-
-			pCurrentCamera->RotateEyeAroundTarget (fPitch, fRoll);
-
-			m_ClickedLeftButtonPoint = Mouse;
-		}
+		m_ClickedLeftButtonPoint = Mouse;
 	}
 }
 

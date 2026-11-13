@@ -11,6 +11,7 @@
 #include "../WorldEditorDoc.h"
 #include "../WorldEditorView.h"
 #include "../DataCtrl/MapAccessorTerrain.h"
+#include "../Util.h"
 
 #ifdef _DEBUG
 	#define new DEBUG_NEW
@@ -83,6 +84,11 @@ BEGIN_MESSAGE_MAP (CMapTerrainPage, CPageCtrl)
 	ON_NOTIFY (LVN_ITEMCHANGED, IDC_LIST_TERRAINTEXTURE, OnItemchangedListTerraintexture)
 	ON_BN_CLICKED (IDC_MAP_TERRAIN_BRUSH_SMOOTH, OnSelectBrushTypeSmooth)
 	ON_BN_CLICKED (IDC_CHECK_DRAW_ON_BLANK_TILE_ONLY, OnCheckDrawOnBlankTileOnly)
+	ON_BN_CLICKED (IDC_WE_WATER_SET0, OnButtonWaterSet0)
+	ON_BN_CLICKED (IDC_WE_WATER_PLUS, OnButtonWaterPlus)
+	ON_BN_CLICKED (IDC_WE_WATER_MINUS, OnButtonWaterMinus)
+	ON_BN_CLICKED (IDC_WE_TEXTURE_CHANGE, OnButtonChangeTexture)
+	ON_BN_CLICKED (IDC_WE_TEXTURE_REMOVE, OnButtonRemoveTexture)
 	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
@@ -124,6 +130,35 @@ BOOL CMapTerrainPage::Create (CWnd * pParent)
 
 	//	m_ctrTerrainTexList.InsertColumn(0, "number", LVCFMT_RIGHT, 40);
 	m_ctrTerrainTexList.InsertColumn (0, "Texture name", LVCFMT_LEFT, 150);
+	m_ctrTerrainTexList.ModifyStyle (LVS_SINGLESEL, 0);
+
+	CRect rcWater;
+	m_SliderWaterHeight.GetWindowRect (&rcWater);
+	ScreenToClient (&rcWater);
+	const int iButtonWidth = 52;
+	int iButtonX = rcWater.right - (iButtonWidth * 3 + 8);
+	if (iButtonX < rcWater.left + 40)
+	{
+		iButtonX = rcWater.left;
+	}
+	m_SliderWaterHeight.MoveWindow (rcWater.left, rcWater.top, iButtonX - rcWater.left - 4, rcWater.Height());
+	m_btnWaterSet0.Create ("set 0z", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, CRect (iButtonX, rcWater.top, iButtonX + iButtonWidth, rcWater.bottom), this, IDC_WE_WATER_SET0);
+	m_btnWaterPlus.Create ("+1z", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, CRect (iButtonX + iButtonWidth + 2, rcWater.top, iButtonX + iButtonWidth * 2 + 2, rcWater.bottom), this, IDC_WE_WATER_PLUS);
+	m_btnWaterMinus.Create ("-1z", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, CRect (iButtonX + iButtonWidth * 2 + 4, rcWater.top, iButtonX + iButtonWidth * 3 + 4, rcWater.bottom), this, IDC_WE_WATER_MINUS);
+
+	CRect rcList;
+	m_ctrTerrainTexList.GetWindowRect (&rcList);
+	ScreenToClient (&rcList);
+	CRect rcClient;
+	GetClientRect (&rcClient);
+	if (rcList.bottom > rcClient.bottom - 26)
+	{
+		rcList.bottom = rcClient.bottom - 26;
+		m_ctrTerrainTexList.MoveWindow (&rcList);
+	}
+	const int iButtonY = rcList.bottom + 2;
+	m_btnChangeTexture.Create ("Change Texture", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, CRect (rcList.left, iButtonY, rcList.left + 110, iButtonY + 22), this, IDC_WE_TEXTURE_CHANGE);
+	m_btnRemoveTexture.Create ("Remove Texture", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, CRect (rcList.left + 116, iButtonY, rcList.left + 226, iButtonY + 22), this, IDC_WE_TEXTURE_REMOVE);
 
 	return TRUE;
 }
@@ -537,81 +572,189 @@ void CMapTerrainPage::OnItemchangedListTerraintexture (NMHDR* pNMHDR, LRESULT* p
 	}
 
 	pMapManagerAccessor->SetTextureBrushVector (TextureNumberVector);
+
+	NM_LISTVIEW * pNMListView = (NM_LISTVIEW*) pNMHDR;
+	if (pNMListView && pNMListView->iItem >= 0 && (pNMListView->uNewState & LVIS_SELECTED))
+	{
+		m_ctrTerrainTexturePreview.UpdatePreview (pNMListView->iItem + 1);
+	}
+}
+
+void CMapTerrainPage::SetWaterHeightZ (int iSlider)
+{
+	if (iSlider < 0)
+	{
+		iSlider = 0;
+	}
+	if (iSlider > 32768)
+	{
+		iSlider = 32768;
+	}
+
+	m_SliderWaterHeight.SetPos (iSlider);
+	m_iWaterheight = iSlider;
+
+	CWorldEditorApp * pApplication = (CWorldEditorApp*) AfxGetApp();
+	CMapManagerAccessor * pMapManagerAccessor = pApplication->GetMapManagerAccessor();
+	if (pMapManagerAccessor)
+	{
+		pMapManagerAccessor->SetBrushWaterHeight ((float) iSlider * 2.0f);
+	}
+	UpdateBrushWaterHeight();
+}
+
+void CMapTerrainPage::OnButtonWaterSet0()
+{
+	SetWaterHeightZ (0);
+}
+
+void CMapTerrainPage::OnButtonWaterPlus()
+{
+	SetWaterHeightZ (m_SliderWaterHeight.GetPos() + 1);
+}
+
+void CMapTerrainPage::OnButtonWaterMinus()
+{
+	SetWaterHeightZ (m_SliderWaterHeight.GetPos() - 1);
+}
+
+void CMapTerrainPage::DeleteOneTexture()
+{
+	CWorldEditorApp * pApplication = (CWorldEditorApp*) AfxGetApp();
+	CMapManagerAccessor * pMapManagerAccessor = pApplication->GetMapManagerAccessor();
+	if (!pMapManagerAccessor)
+	{
+		return;
+	}
+
+	CTerrainAccessor * pTerrainAccessor;
+	if (!pMapManagerAccessor->GetEditTerrain (&pTerrainAccessor))
+	{
+		return;
+	}
+
+	POSITION p = m_ctrTerrainTexList.GetFirstSelectedItemPosition();
+	if (!p)
+	{
+		return;
+	}
+
+	const int nSelected = m_ctrTerrainTexList.GetNextSelectedItem (p);
+	if (nSelected < 0)
+	{
+		return;
+	}
+
+	const long lTexture = nSelected + 1;
+	if (lTexture <= 0)
+	{
+		LogBoxf ("TextureSet: You cannot delete the #%u texture.", (unsigned) lTexture);
+		return;
+	}
+
+	const std::string strName = pTerrainAccessor->GetTexture (lTexture).stFilename;
+	char szWarning[512];
+	_snprintf (szWarning, sizeof (szWarning), "Are you sure you want to delete %s from the texture list?", strName.c_str());
+	if (IDYES != MessageBox (szWarning, "Delete", MB_YESNO))
+	{
+		return;
+	}
+
+	if (!pMapManagerAccessor->RemoveTerrainTexture (lTexture))
+	{
+		LogBoxf ("Failed to delete %s from the list.", strName.c_str());
+	}
+
+	UpdateTextureList();
 }
 
 void CMapTerrainPage::OnButtonAddtexture()
 {
-	// TODO: Add your control notification handler code here
 	CheckDlgButton (IDC_CHECK_ERASER, 0);
 	OnCheckEraser();
 
-	DWORD dwFlag = OFN_HIDEREADONLY | OFN_NOCHANGEDIR;
-	const char* c_szFilter = "All Texture Files (*.*)|*.*|";
+	char szFiles[65536];
+	szFiles[0] = 0;
 
-	CFileDialog FileOpener (TRUE, "Load", "", dwFlag, c_szFilter, this);
+	CFileDialog FileOpener (TRUE, NULL, NULL, OFN_HIDEREADONLY | OFN_NOCHANGEDIR | OFN_ALLOWMULTISELECT | OFN_EXPLORER | OFN_FILEMUSTEXIST,
+							"All Texture Files (*.*)|*.*|", this);
+	FileOpener.GetOFN().lpstrFile = szFiles;
+	FileOpener.GetOFN().nMaxFile = sizeof (szFiles);
 
-	if (TRUE == FileOpener.DoModal())
+	if (TRUE != FileOpener.DoModal())
 	{
-		CWorldEditorApp * pApplication = (CWorldEditorApp*)AfxGetApp();
-		CMapManagerAccessor * pMapManagerAccessor = pApplication->GetMapManagerAccessor();
+		return;
+	}
 
-		CString path = FileOpener.GetPathName();
+	CWorldEditorApp * pApplication = (CWorldEditorApp*) AfxGetApp();
+	CMapManagerAccessor * pMapManagerAccessor = pApplication->GetMapManagerAccessor();
+	if (!pMapManagerAccessor)
+	{
+		return;
+	}
+
+	POSITION pos = FileOpener.GetStartPosition();
+	while (pos)
+	{
+		CString path = FileOpener.GetNextPathName (pos);
 		std::string filename = path.GetString();
 		stl_lowers (filename);
-
 		if (!pMapManagerAccessor->AddTerrainTexture (filename.c_str()))
 		{
-			assert (false);
+			LogBoxf ("[%s] Failed to add a new textureset texture.", filename.c_str());
 		}
-
-		UpdateTextureList();
 	}
+
+	UpdateTextureList();
+}
+
+void CMapTerrainPage::OnButtonChangeTexture()
+{
+	POSITION p = m_ctrTerrainTexList.GetFirstSelectedItemPosition();
+	if (!p)
+	{
+		return;
+	}
+
+	const int nSelected = m_ctrTerrainTexList.GetNextSelectedItem (p);
+	if (nSelected < 0)
+	{
+		return;
+	}
+
+	CFileDialog FileOpener (TRUE, NULL, NULL, OFN_HIDEREADONLY | OFN_NOCHANGEDIR | OFN_FILEMUSTEXIST, "All Texture Files (*.*)|*.*|", this);
+	if (TRUE != FileOpener.DoModal())
+	{
+		return;
+	}
+
+	CWorldEditorApp * pApplication = (CWorldEditorApp*) AfxGetApp();
+	CMapManagerAccessor * pMapManagerAccessor = pApplication->GetMapManagerAccessor();
+	if (!pMapManagerAccessor)
+	{
+		return;
+	}
+
+	std::string filename = FileOpener.GetPathName().GetString();
+	stl_lowers (filename);
+	pMapManagerAccessor->ChangeTerrainTexture (nSelected + 1, filename.c_str());
+	UpdateTextureList();
+	m_ctrTerrainTexturePreview.UpdatePreview (nSelected + 1);
+}
+
+void CMapTerrainPage::OnButtonRemoveTexture()
+{
+	DeleteOneTexture();
 }
 
 void CMapTerrainPage::OnKeydownListTerraintexture (NMHDR* pNMHDR, LRESULT* pResult)
 {
-	/*
-		CWorldEditorApp * pApplication = (CWorldEditorApp *)AfxGetApp();
-		CMapManagerAccessor * pMapManagerAccessor = pApplication->GetMapManagerAccessor();
-
-		if (!pMapManagerAccessor)
-			return;
-
-		CTerrainAccessor * pTerrainAccessor;
-
-		if (!pMapManagerAccessor->GetEditTerrain(&pTerrainAccessor))
-			return;
-
-		LV_KEYDOWN * pLVKeyDow = (LV_KEYDOWN *) pNMHDR;
-
-		if (VK_DELETE == pLVKeyDow->wVKey)
-		{
-			POSITION p = m_ctrTerrainTexList.GetFirstSelectedItemPosition();
-
-			while (p)
-			{
-				int nSelected = m_ctrTerrainTexList.GetNextSelectedItem(p);
-
-				if (nSelected < 0)
-					break;
-
-				char szWarningText[256+1];
-
-				snprintf(szWarningText, 256, "Do you want to remove the texture %s from the list?",
-						pTerrainAccessor->GetTexture(nSelected + 1).stFilename.c_str());
-
-				if (IDOK == MessageBox(szWarningText, "Delete", MB_OKCANCEL))
-				{
-					if (!pMapManagerAccessor->RemoveTerrainTexture(nSelected + 1))
-						LogBoxf("Failed to remove %s from the list.",
-								pTerrainAccessor->GetTexture(nSelected + 1).stFilename.c_str());
-				}
-			}
-
-			UpdateTextureList();
-		}
-		*pResult = 0;
-	*/
+	LV_KEYDOWN * pKey = (LV_KEYDOWN*) pNMHDR;
+	if (pKey && VK_DELETE == pKey->wVKey)
+	{
+		DeleteOneTexture();
+	}
+	*pResult = 0;
 }
 
 void CMapTerrainPage::OnCheckEraser()

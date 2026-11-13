@@ -598,8 +598,20 @@ void CSceneObject::BuildTimeHitPosition (NRaceData::TMotionAttackData * pMotionA
 
 		rHitData.mapHitPosition.clear();
 
+		static const char * c_szWeaponModel = "D:\\Ymir Work\\item/weapon/00010.gr2";
+		if (!CResourceManager::Instance().IsFileExist (c_szWeaponModel))
+		{
+			TraceError ("The file [%s] is not a model or doesn't exist", c_szWeaponModel);
+			continue;
+		}
+
 		CGraphicThing * pThing;
-		pThing = (CGraphicThing*)CResourceManager::Instance().GetResourcePointer ("D:\\Ymir Work\\item/weapon/00010.gr2");
+		pThing = (CGraphicThing*)CResourceManager::Instance().GetResourcePointer (c_szWeaponModel);
+		if (!pThing)
+		{
+			TraceError ("The file [%s] is not a model or doesn't exist", c_szWeaponModel);
+			continue;
+		}
 		m_ActorInstanceAccessor.RegisterModelThing (1, pThing);
 		m_ActorInstanceAccessor.SetModelInstance (1, 1, 0);
 		m_ActorInstanceAccessor.AttachModelInstance (0, rHitData.strBoneName.c_str(), 1);

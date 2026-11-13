@@ -252,6 +252,11 @@ class CMapOutdoor : public CMapBase
 		void			RenderTerrain();
 
 		const long		GetViewRadius() const { return m_lViewRadius;		}
+#ifdef WORLD_EDITOR
+		static int ms_iTextureCountColorMode;
+		static void SetTextureCountColorMode (int iMode) { ms_iTextureCountColorMode = iMode; }
+		static int GetTextureCountColorMode() { return ms_iTextureCountColorMode; }
+#endif
 		const float		GetHeightScale() const { return m_fHeightScale;	}
 
 		const TOutdoorMapCoordinate & GetEntryPoint(const std::string & c_rstrEntryPointName) const;
@@ -421,6 +426,13 @@ class CMapOutdoor : public CMapBase
 		D3DXMATRIX				m_matBump;
 		void					LoadWaterTexture();
 		void					UnloadWaterTexture();
+#ifdef WORLD_EDITOR
+	public:
+		static void SetViewObjectLighting(bool bEnable) { ms_bViewObjectLighting = bEnable; }
+		static bool IsViewObjectLighting() { return ms_bViewObjectLighting; }
+	protected:
+		static bool ms_bViewObjectLighting;
+#endif
 		//Water
 		//////////////////////////////////////////////////////////////////////////
 
@@ -664,6 +676,8 @@ class CMapOutdoor : public CMapBase
 	protected:
 		float	m_fOpaqueWaterDepth;
 		CGraphicImageInstance m_WaterInstances[30];
+		std::string m_strSpecialWaterPath;
+		DWORD m_dwSpecialWaterCount;
 
 	public:
 		float	GetOpaqueWaterDepth() const { return m_fOpaqueWaterDepth;	}

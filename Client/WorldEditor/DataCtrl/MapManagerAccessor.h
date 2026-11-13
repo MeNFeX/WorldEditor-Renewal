@@ -213,6 +213,7 @@ class CMapManagerAccessor : public CMapManager
 		////////////////////////////////////////////
 		// Texture Set
 		bool	AddTerrainTexture (const char* pFilename);
+		bool	ChangeTerrainTexture (long lTexNum, const char* pFilename);
 		bool	RemoveTerrainTexture (long lTexNum);
 		void	ResetTerrainTexture();
 		// Texture Set
@@ -242,6 +243,14 @@ class CMapManagerAccessor : public CMapManager
 		void AddSelectedAmbienceScale (int iAddScale);
 		void AddSelectedAmbienceMaxVolumeAreaPercentage (float fPercentage);
 		void AddSelectedObjectRotation (float fYaw, float fPitch, float fRoll);
+		void ResetSelectedObjectHeightToTerrain();
+		void ResetSelectedObjectRotation();
+		bool RotateSelectedObjectAroundPivot (float fYaw);
+		void CopySelectedObjectsToClipboard();
+		void PasteObjectsFromClipboard();
+		bool ReloadCurrentMap();
+		bool ExportCurrentMap();
+		void BackupMapFolder (const std::string & c_rstrMapFolder);
 		void SetSelectedObjectPortalNumber (int iID);
 		void DelSelectedObjectPortalNumber (int iID);
 		void CollectPortalNumber (std::set<int>* pkSet_iPortalNumber);
@@ -272,7 +281,14 @@ class CMapManagerAccessor : public CMapManager
 		void InitMap();
 		bool NewMap (const char* c_szMapName);
 		bool SaveMap (const char* c_szMapName = NULL);				// 전체 맵 관련 데이타를 저장한다.
+		bool IsAutoSave() const { return m_bAutoSave; }
+		void SetAutoSave (bool bEnable);
+		DWORD GetTimeSave() const { return m_dwNextTimeSave; }
+		void SetNextTimeSave (DWORD dwTime) { m_dwNextTimeSave = dwTime; }
+		void UpdateAutoSave();
 		bool SaveTerrains();										// 현재 메모리에 있는 최대 9개 Terrain 전체를 저장한다.
+		bool SaveServerAttr();
+		bool SaveServerAttr (const std::string & c_rstrFolder);
 		bool SaveAreas();											// 현재 메모리에 있는 최대 9개 Area 전체를 저장한다.
 
 		void SetNewMapName (const char* c_szNewMapName)
@@ -286,6 +302,10 @@ class CMapManagerAccessor : public CMapManager
 		void SetNewMapSizeY (WORD wNewMapSizeY)
 		{
 			m_wNewMapSizeY = wNewMapSizeY;
+		}
+		void SetNewMapTextureSet (const char * c_szTextureSet)
+		{
+			m_strNewMapTextureSet = c_szTextureSet ? c_szTextureSet : "";
 		}
 
 		bool CreateNewOutdoorMap();
@@ -464,9 +484,12 @@ class CMapManagerAccessor : public CMapManager
 		// 포인터 저장용...
 		CMapOutdoorAccessor* 	m_pMapAccessor;
 		CHeightObserver* 		m_pHeightObserver;
+		bool					m_bAutoSave;
+		DWORD					m_dwNextTimeSave;
 
 		// NewMap 관련...
 		std::string				m_strNewMapName;
+		std::string				m_strNewMapTextureSet;
 		WORD					m_wNewMapSizeX, m_wNewMapSizeY;
 
 		WORD					m_wOldEditX, m_wOldEditY;

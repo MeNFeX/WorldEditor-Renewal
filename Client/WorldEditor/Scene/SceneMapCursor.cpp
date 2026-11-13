@@ -2,6 +2,7 @@
 #include "SceneMapCursor.h"
 #include "../../EffectLib/EffectManager.h"
 #include "../../GameLib/Property.h"
+#include "../Util.h"
 
 #include <fstream>   // for [YOSUN_WORLDEDITOR_FIX_001]
 
@@ -122,7 +123,7 @@ void CCursorRenderer::RenderPieceLine (float fxStart, float fyStart, float fxEnd
 void CCursorRenderer::RenderCursorSquare (float fxStart, float fyStart, float fxEnd, float fyEnd, int iStep)
 {
 	SetDiffuseOperation();
-	SetDiffuseColor (0.0f, 1.0f, 0.0f);
+	SetDiffuseColor (CWorldEditorConfig::Instance().CursorColorR(), CWorldEditorConfig::Instance().CursorColorG(), CWorldEditorConfig::Instance().CursorColorB());
 	STATEMANAGER.SetTransform (D3DTS_WORLD, &GetIdentityMatrix());
 	STATEMANAGER.SetRenderState (D3DRS_LIGHTING, FALSE);
 
@@ -135,7 +136,7 @@ void CCursorRenderer::RenderCursorSquare (float fxStart, float fyStart, float fx
 void CCursorRenderer::RenderCursorCircle (float fx, float fy, float fz, float fRadius, int iStep)
 {
 	SetDiffuseOperation();
-	SetDiffuseColor (0.0f, 1.0f, 0.0f);
+	SetDiffuseColor (CWorldEditorConfig::Instance().CursorColorR(), CWorldEditorConfig::Instance().CursorColorG(), CWorldEditorConfig::Instance().CursorColorB());
 	STATEMANAGER.SetTransform (D3DTS_WORLD, &GetIdentityMatrix());
 	STATEMANAGER.SetRenderState (D3DRS_LIGHTING, FALSE);
 
@@ -171,7 +172,7 @@ void CCursorRenderer::RenderCursorCircle (float fx, float fy, float fz, float fR
 
 void CCursorRenderer::RenderCursorArea()
 {
-	SetDiffuseColor (0.0f, 1.0f, 0.0f, 1.0f);
+	SetDiffuseColor (CWorldEditorConfig::Instance().CursorColorR(), CWorldEditorConfig::Instance().CursorColorG(), CWorldEditorConfig::Instance().CursorColorB(), 1.0f);
 
 	const D3DXVECTOR3 & c_rv3CursorPosition = GetCursorPosition();
 
@@ -523,10 +524,10 @@ void CCursorRenderer::SetGridDistance (float fGridDistance)
 
 void CCursorRenderer::SetObjectHeight (float fHeight)
 {
+	const float fMax = CWorldEditorConfig::Instance().ObjectHeightMax();
 	m_fObjectHeight = fHeight;
-
-	m_fObjectHeight = fMAX (m_fObjectHeight, -5000.0f);
-	m_fObjectHeight = fMIN (m_fObjectHeight, +5000.0f);
+	m_fObjectHeight = fMAX (m_fObjectHeight, -fMax);
+	m_fObjectHeight = fMIN (m_fObjectHeight, fMax);
 }
 
 float CCursorRenderer::GetCursorYaw()

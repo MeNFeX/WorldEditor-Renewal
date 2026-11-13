@@ -143,6 +143,8 @@ class CSceneMap : public CSceneBase
 
 	protected:
 		void OnUpdate();
+		void UpdateRemixMovement();
+		void FrameCameraForMiniMap();
 		void OnRender (BOOL bClear);
 		void OnRenderUI (float fx, float fy);
 		void OnRenderLightDirection();

@@ -89,6 +89,9 @@ void CEffectParticleTexturePreview::UpdatePreview (CGraphicImage * pImage)
 {
 	m_pImage = pImage;
 	m_ImageInstance.Destroy();
-	m_ImageInstance.SetImagePointer (pImage);
+	if (pImage)
+	{
+		m_ImageInstance.SetImagePointer (pImage);
+	}
 	Invalidate();
 }

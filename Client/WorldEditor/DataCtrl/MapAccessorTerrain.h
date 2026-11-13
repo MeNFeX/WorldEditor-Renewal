@@ -28,6 +28,9 @@ class CTerrainAccessor : public CTerrain
 		CTerrainAccessor();
 		virtual ~CTerrainAccessor();
 
+		static void SetGaussianCubic (bool bOn);
+		static bool IsGaussianCubic();
+
 		virtual void	Clear();
 
 		void DrawHeightBrush (DWORD dwBrushShape,

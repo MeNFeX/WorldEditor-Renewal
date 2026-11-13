@@ -7,6 +7,7 @@
 #include "WorldEditorDoc.h"
 #include "WorldEditorView.h"
 #include "Dialog/DlgGoto.h"
+#include "Util.h"
 #include "DataCtrl/ShadowRenderHelper.h"
 #include "../EterLib/Camera.h"
 
@@ -76,7 +77,7 @@ int CWorldEditorView::OnCreate (LPCREATESTRUCT lpCreateStruct)
 	m_pDlgPerspective = new CDlgPerspective;
 	m_pDlgPerspective->Create (IDD_DIALOG_PERSPECTIVE, this);
 	m_pDlgPerspective->SetWindowPos (NULL, 0, 0, 0, 0, TRUE);
-	m_pDlgPerspective->SetFOV (40.0f);
+	m_pDlgPerspective->SetFOV (CWorldEditorConfig::Instance().WindowFov());
 	m_pDlgPerspective->SetNearDistance (100.0f);
 	m_pDlgPerspective->SetFarDistance (30000.0f);
 	return 0;
@@ -269,6 +270,13 @@ BOOL CWorldEditorView::IsInfoBoxVisible()
 */
 void CWorldEditorView::RunKeyDown (int iChar)
 {
+	if (iChar == VK_F5)
+	{
+		if (!CWorldEditorConfig::Instance().EnablePython())
+			Tracef ("Python disabled.\n");
+		else
+			Tracef ("Python failed to be loaded.\n");
+	}
 	CWorldEditorDoc * pDoc = GetDocument();
 	CSceneBase * pScene = pDoc->GetActiveScene();
 	pScene->KeyDown (iChar);
@@ -592,6 +600,37 @@ BOOL CWorldEditorView::OnSetCursor (CWnd* pWnd, UINT nHitTest, UINT message)
 	//		pWnd->SetFocus();
 
 	return CView::OnSetCursor (pWnd, nHitTest, message);
+}
+
+void CWorldEditorView::SetEditorFov (float fFov)
+{
+	if (m_pDlgPerspective)
+	{
+		m_pDlgPerspective->SetFOV (fFov);
+	}
+}
+
+void CWorldEditorView::SetEditorFarClip (float fFar)
+{
+	if (m_pDlgPerspective)
+	{
+		m_pDlgPerspective->SetFarDistance (fFar);
+	}
+}
+
+void CWorldEditorView::ResetDefaultPerspective()
+{
+	SetEditorFov (CWorldEditorConfig::Instance().WindowFov());
+	if (m_pDlgPerspective)
+	{
+		m_pDlgPerspective->SetNearDistance (100.0f);
+		m_pDlgPerspective->SetFarDistance (30000.0f);
+	}
+
+	CCamera * pCamera = CCameraManager::Instance().GetCurrentCamera();
+	const D3DXVECTOR3 v3Target = pCamera->GetTarget();
+	const D3DXVECTOR3 v3Eye (v3Target.x, v3Target.y - 1500.0f, v3Target.z + 1200.0f);
+	pCamera->SetViewParams (v3Eye, v3Target, D3DXVECTOR3 (0.0f, 0.0f, 1.0f));
 }
 
 void CWorldEditorView::Process()

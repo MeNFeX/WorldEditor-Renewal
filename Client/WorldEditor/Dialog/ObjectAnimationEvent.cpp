@@ -4,6 +4,7 @@
 #include "StdAfx.h"
 #include "../WorldEditor.h"
 #include "ObjectAnimationEvent.h"
+#include "../Util.h"
 
 #ifdef _DEBUG
 	#define new DEBUG_NEW
@@ -126,6 +127,10 @@ void CObjectAnimationEvent::__BuildEventPageVector()
 	m_EventPageVector[CRaceMotionData::MOTION_EVENT_TYPE_CHARACTER_HIDE] = &m_EventPageCharacterHide;
 	m_EventPageVector[CRaceMotionData::MOTION_EVENT_TYPE_WARP] = &m_EventPageWarp;
 	m_EventPageVector[CRaceMotionData::MOTION_EVENT_TYPE_EFFECT_TO_TARGET] = &m_EventPageEffectToTarget;
+#ifdef ENABLE_WOLFMAN_CHARACTER
+	m_EventPageVector[CRaceMotionData::MOTION_EVENT_TYPE_UNK11] = &m_EventPageUnk11;
+	m_EventPageVector[CRaceMotionData::MOTION_EVENT_TYPE_UNK12] = &m_EventPageUnk12;
+#endif
 }
 
 void CObjectAnimationEvent::__BuildEventTypeList()
@@ -143,6 +148,10 @@ void CObjectAnimationEvent::__BuildEventTypeList()
 		"Character Hide",
 		"Warp",
 		"Effect To Target",
+#ifdef ENABLE_WOLFMAN_CHARACTER
+		"Wolfman AniSpeed",
+		"Wolfman Unk12",
+#endif
 	};
 	for (int i = 0; i < CRaceMotionData::MOTION_EVENT_TYPE_MAX_NUM; ++i)
 	{
@@ -204,6 +213,16 @@ BOOL CObjectAnimationEvent::OnInitDialog()
 	{
 		return FALSE;
 	}
+#ifdef ENABLE_WOLFMAN_CHARACTER
+	if (!m_EventPageUnk11.Create (this, Rect))
+	{
+		return FALSE;
+	}
+	if (!m_EventPageUnk12.Create (this, Rect))
+	{
+		return FALSE;
+	}
+#endif
 
 	__BuildEventPageVector();
 	__BuildEventTypeList();
@@ -281,3 +300,82 @@ void CObjectAnimationEvent::OnChangeEventType()
 		m_EventPageVector[dwCurSel]->ShowWindow (SW_SHOW);
 	}
 }
+
+#ifdef ENABLE_WOLFMAN_CHARACTER
+CObjectAnimationEventUnk11::CObjectAnimationEventUnk11 (CWnd * pParent)
+	: CObjectAnimationEventBase (CObjectAnimationEventUnk11::IDD, pParent)
+{
+}
+
+BEGIN_MESSAGE_MAP (CObjectAnimationEventUnk11, CDialog)
+END_MESSAGE_MAP()
+
+BOOL CObjectAnimationEventUnk11::Create (CWnd * pParent, const CRect & c_rRect)
+{
+	if (!CDialog::Create (CObjectAnimationEventUnk11::IDD, pParent))
+	{
+		return FALSE;
+	}
+
+	SetWindowPos (NULL, c_rRect.left, c_rRect.top, c_rRect.Width(), c_rRect.Height(), TRUE);
+	m_staticSpeed.Create ("BaseVelocity", WS_CHILD | WS_VISIBLE, CRect (8, 8, 90, 24), this);
+	m_editSpeed.Create (WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL, CRect (96, 6, 180, 26), this, IDC_WE_UNK11_SPEED);
+	m_editSpeed.SetWindowText ("0");
+	ShowWindow (SW_HIDE);
+	return TRUE;
+}
+
+void CObjectAnimationEventUnk11::Close()
+{
+}
+
+void CObjectAnimationEventUnk11::GetData (CRaceMotionData::TMotionEventData * pMotionEventData)
+{
+	CRaceMotionData::TMotionUnk11EventData * pData = (CRaceMotionData::TMotionUnk11EventData*) pMotionEventData;
+	CString strSpeed;
+	m_editSpeed.GetWindowText (strSpeed);
+	pData->iAniSpeed = atoi (strSpeed);
+}
+
+void CObjectAnimationEventUnk11::SetData (const CRaceMotionData::TMotionEventData * c_pMotionEventData)
+{
+	const CRaceMotionData::TMotionUnk11EventData * pData = (const CRaceMotionData::TMotionUnk11EventData*) c_pMotionEventData;
+	CString strSpeed;
+	strSpeed.Format ("%d", pData->iAniSpeed);
+	m_editSpeed.SetWindowText (strSpeed);
+}
+
+CObjectAnimationEventUnk12::CObjectAnimationEventUnk12 (CWnd * pParent)
+	: CObjectAnimationEventBase (CObjectAnimationEventUnk12::IDD, pParent)
+{
+}
+
+BEGIN_MESSAGE_MAP (CObjectAnimationEventUnk12, CDialog)
+END_MESSAGE_MAP()
+
+BOOL CObjectAnimationEventUnk12::Create (CWnd * pParent, const CRect & c_rRect)
+{
+	if (!CDialog::Create (CObjectAnimationEventUnk12::IDD, pParent))
+	{
+		return FALSE;
+	}
+
+	SetWindowPos (NULL, c_rRect.left, c_rRect.top, c_rRect.Width(), c_rRect.Height(), TRUE);
+	ShowWindow (SW_HIDE);
+	return TRUE;
+}
+
+void CObjectAnimationEventUnk12::Close()
+{
+}
+
+void CObjectAnimationEventUnk12::GetData (CRaceMotionData::TMotionEventData * pMotionEventData)
+{
+	(void) pMotionEventData;
+}
+
+void CObjectAnimationEventUnk12::SetData (const CRaceMotionData::TMotionEventData * c_pMotionEventData)
+{
+	(void) c_pMotionEventData;
+}
+#endif

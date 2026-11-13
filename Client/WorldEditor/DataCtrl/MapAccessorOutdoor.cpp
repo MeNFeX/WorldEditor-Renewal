@@ -122,7 +122,7 @@ bool CMapOutdoorAccessor::SaveSetting (const std::string & c_rstrFolder)
 
 	if (0L != GetViewRadius())
 	{
-		fprintf (File, "ViewRadius\t%ld\n", GetViewRadius());
+		fprintf (File, "ViewRadius\t%ld\n", GetViewRadius() >> 1);
 	}
 	else
 	{
@@ -148,6 +148,9 @@ bool CMapOutdoorAccessor::SaveSetting (const std::string & c_rstrFolder)
 	fprintf (File, "TextureSet\t%s\n", m_TextureSet.GetFileName());
 
 	fprintf (File, "Environment\t%s\n", GetEnvironmentDataName().c_str());
+	fprintf (File, "EncryptionSet\t%u\n", 0);
+	fprintf (File, "SpecialWaterPath\t\"%s\"\n", m_strSpecialWaterPath.c_str());
+	fprintf (File, "SpecialWaterCount\t%u\n", m_dwSpecialWaterCount);
 
 	fprintf (File, "\n");
 
@@ -156,6 +159,49 @@ bool CMapOutdoorAccessor::SaveSetting (const std::string & c_rstrFolder)
 	if (! (m_TextureSet.Save (m_TextureSet.GetFileName())))
 	{
 		return false;
+	}
+
+	return true;
+}
+
+bool CMapOutdoorAccessor::PrepareNewTextureSet (const char * c_szPath)
+{
+	if (!c_szPath || !c_szPath[0])
+	{
+		LogBox ("The TextureSet Path should not be empty or something ambiguous will happen.");
+		return false;
+	}
+
+	const float fTerrainTexCoordBase = 1.0f / (float) (CTerrainImpl::PATCH_XSIZE * CTerrainImpl::CELLSCALE);
+	if (m_TextureSet.Load (c_szPath, fTerrainTexCoordBase))
+	{
+		return true;
+	}
+
+	std::string strPath = c_szPath;
+	const size_t nSlash = strPath.find_last_of ("\\/");
+	if (nSlash != std::string::npos)
+	{
+		CreateDirectory (strPath.substr (0, nSlash).c_str(), NULL);
+	}
+
+	FILE * pFile = fopen (c_szPath, "w");
+	if (!pFile)
+	{
+		LogBoxf ("[%s] TextureSet can't be created. It will remain blank.", c_szPath);
+		m_TextureSet.Create();
+		m_TextureSet.SetFileName (c_szPath);
+		return true;
+	}
+
+	fprintf (pFile, "TextureSet\n\nTextureCount 0\n");
+	fclose (pFile);
+
+	if (!m_TextureSet.Load (c_szPath, fTerrainTexCoordBase))
+	{
+		LogBoxf ("[%s] TextureSet can't be created. It will remain blank.", c_szPath);
+		m_TextureSet.Create();
+		m_TextureSet.SetFileName (c_szPath);
 	}
 
 	return true;
@@ -1696,9 +1742,6 @@ void CMapOutdoorAccessor::SetMonsterNames()
 
 bool CMapOutdoorAccessor::SaveMonsterAreaInfo()
 {
-	//!! 저장하지 않는다.
-	return true;
-
 	char szFileName[256];
 	sprintf (szFileName, "%s\\regen.txt", m_strName.c_str());
 	FILE * File = fopen (szFileName, "w");

@@ -134,6 +134,12 @@ void CLensFlare::Compute(const D3DXVECTOR3 & c_rv3LightDirection)
 	float fX, fY;
 	ProjectPosition(afSunPos[0], afSunPos[1], afSunPos[2], &fX, &fY);
 
+	if (!_finite(fX) || !_finite(fY))
+	{
+		SetVisible(false);
+		return;
+	}
+
 	// set flare location
 	SetFlareLocation(fX, fY);
 
@@ -141,6 +147,11 @@ void CLensFlare::Compute(const D3DXVECTOR3 & c_rv3LightDirection)
 	const float fSunVectorMagnitude = sqrtf(afSunPos[0] * afSunPos[0] +
 		afSunPos[1] * afSunPos[1] +
 		afSunPos[2] * afSunPos[2]);
+	if (fSunVectorMagnitude < 0.0001f)
+	{
+		SetVisible(false);
+		return;
+	}
 	float afSunVector[3];
 	afSunVector[0] = -afSunPos[0] / fSunVectorMagnitude;
 	afSunVector[1] = -afSunPos[1] / fSunVectorMagnitude;
@@ -151,10 +162,14 @@ void CLensFlare::Compute(const D3DXVECTOR3 & c_rv3LightDirection)
 	afCameraDirection[1] = ms_matView._23;
 	afCameraDirection[2] = ms_matView._33;
 
-	const float fDotProduct =
+	float fDotProduct =
 		(afSunVector[0] * afCameraDirection[0]) +
 		(afSunVector[1] * afCameraDirection[1]) +
 		(afSunVector[2] * afCameraDirection[2]);
+	if (fDotProduct > 1.0f)
+		fDotProduct = 1.0f;
+	if (fDotProduct < -1.0f)
+		fDotProduct = -1.0f;
 
 	if (acosf(fDotProduct) < 0.5f * D3DX_PI)
 		SetVisible(true);
@@ -180,7 +195,7 @@ void CLensFlare::DrawBeforeFlare()
     if (!m_bFlareVisible || !m_bEnabled || !m_bShowMainFlare)
         return;
 
-	if (m_SunFlareImageInstance.IsEmpty())
+	if (m_SunFlareImageInstance.IsEmpty() || !m_SunFlareImageInstance.GetTexturePointer())
 		return;
 
 	D3DXMATRIX matProj;
@@ -365,9 +380,25 @@ void CLensFlare::SetFlareLocation(double dX, double dY)
 		m_afFlareWinPos[0] = float(dX);
 		m_afFlareWinPos[1] = float(dY);
 
-		m_afFlarePos[0] = float(dX) / ms_Viewport.Width;
-		m_afFlarePos[1] = float(dY) / ms_Viewport.Height;
+		m_afFlarePos[0] = ms_Viewport.Width > 0 ? float(dX) / ms_Viewport.Width : 0.0f;
+		m_afFlarePos[1] = ms_Viewport.Height > 0 ? float(dY) / ms_Viewport.Height : 0.0f;
+		GetLensFlareEX();
+		GetLensFlareEY();
 	}
+}
+
+float CLensFlare::GetLensFlareEX()
+{
+	static float g_lensFlareEX = 0.0f;
+	g_lensFlareEX = m_afFlareWinPos[0];
+	return g_lensFlareEX;
+}
+
+float CLensFlare::GetLensFlareEY()
+{
+	static float g_lensFlareEY = 0.0f;
+	g_lensFlareEY = m_afFlareWinPos[1];
+	return g_lensFlareEY;
 }
 
 ///////////////////////////////////////////////////////////////////////

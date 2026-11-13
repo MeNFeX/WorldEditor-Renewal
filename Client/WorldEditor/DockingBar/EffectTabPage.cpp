@@ -105,7 +105,7 @@ void CEffectTabPage::UpdateUI()
 		m_ctrlEffectList.DeleteString (0);
 	}
 
-	char szName[32 + 1];
+	char szName[256];
 	DWORD iCount = pEffectAccessor->GetElementCount();
 	for (DWORD i = 0; i < iCount; ++i)
 	{
@@ -117,12 +117,13 @@ void CEffectTabPage::UpdateUI()
 
 		if (pElement->bVisible)
 		{
-			_snprintf (szName, 32, "[%02d] [SHOW] %s", i + 1, pElement->strName.c_str());
+			_snprintf (szName, sizeof (szName), "[%02d] Show %s", i + 1, pElement->strName.c_str());
 		}
 		else
 		{
-			_snprintf (szName, 32, "[%02d] [HIDE] %s", i + 1, pElement->strName.c_str());
+			_snprintf (szName, sizeof (szName), "[%02d] Hide %s", i + 1, pElement->strName.c_str());
 		}
+		szName[sizeof (szName) - 1] = '\0';
 
 		m_ctrlEffectList.InsertString (i, szName);
 
@@ -240,6 +241,10 @@ void CEffectTabPage::OnSaveScript (const char* c_szFileName)
 		switch (pElement->iType)
 		{
 			case CEffectAccessor::EFFECT_ELEMENT_TYPE_PARTICLE:
+				if (!pElement->pBase || !pElement->pParticle)
+				{
+					break;
+				}
 				PrintfTabs (File, 0, "Group Particle\n");
 				PrintfTabs (File, 0, "{\n");
 				pElement->pBase->SaveScript (1, File);
@@ -248,6 +253,10 @@ void CEffectTabPage::OnSaveScript (const char* c_szFileName)
 				break;
 
 			case CEffectAccessor::EFFECT_ELEMENT_TYPE_MESH:
+				if (!pElement->pBase || !pElement->pMesh)
+				{
+					break;
+				}
 				PrintfTabs (File, 0, "Group Mesh\n");
 				PrintfTabs (File, 0, "{\n");
 				pElement->pBase->SaveScript (1, File);
@@ -256,6 +265,10 @@ void CEffectTabPage::OnSaveScript (const char* c_szFileName)
 				break;
 
 			case CEffectAccessor::EFFECT_ELEMENT_TYPE_LIGHT:
+				if (!pElement->pBase || !pElement->pLight)
+				{
+					break;
+				}
 				PrintfTabs (File, 0, "Group Light\n");
 				PrintfTabs (File, 0, "{\n");
 				pElement->pBase->SaveScript (1, File);

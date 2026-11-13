@@ -17,6 +17,8 @@
 #include "MapAccessorOutdoor.h"
 #include "MapAccessorTerrain.h"
 #include "NonPlayerCharacterInfo.h"
+#include "../Util.h"
+#include <filesystem>
 
 ////////////////////////////////
 
@@ -26,7 +28,7 @@ float CMapManagerAccessor::CHeightObserver::GetHeight (float fx, float fy)
 }
 
 //////////////////////////////////////////////////////////////////////////
-CMapManagerAccessor::CMapManagerAccessor() : m_pHeightObserver (NULL)
+CMapManagerAccessor::CMapManagerAccessor() : m_pHeightObserver (NULL), m_bAutoSave (false), m_dwNextTimeSave (0)
 {
 	m_v3EditingCursorPosition = D3DXVECTOR3 (0.0f, 0.0f, 0.0f);
 
@@ -36,6 +38,32 @@ CMapManagerAccessor::CMapManagerAccessor() : m_pHeightObserver (NULL)
 CMapManagerAccessor::~CMapManagerAccessor()
 {
 	Destroy();
+}
+
+void CMapManagerAccessor::SetAutoSave (bool bEnable)
+{
+	m_bAutoSave = bEnable;
+	SetNextTimeSave (::GetTickCount() + (DWORD) CWorldEditorConfig::Instance().AutoSaveTime() * 1000);
+}
+
+void CMapManagerAccessor::UpdateAutoSave()
+{
+	if (!m_bAutoSave || !IsMapReady() || !m_pMapAccessor)
+		return;
+	if (m_pMapAccessor->GetName().empty())
+		return;
+
+	const DWORD dwNow = ::GetTickCount();
+	if ((int) (dwNow - m_dwNextTimeSave) < 0)
+		return;
+
+	SetNextTimeSave (dwNow + (DWORD) CWorldEditorConfig::Instance().AutoSaveTime() * 1000);
+	if (!SaveMap())
+		return;
+
+	SYSTEMTIME kTime;
+	::GetLocalTime (&kTime);
+	Tracef ("[%02d:%02d:%02d] %s\n", kTime.wHour, kTime.wMinute, kTime.wSecond, "Auto-Save Successful.");
 }
 
 void CMapManagerAccessor::Initialize()
@@ -104,6 +132,7 @@ void CMapManagerAccessor::Clear()
 	m_lBrushWaterHeight = 0;
 
 	m_bShowAllMonsterAreaInfo = false;
+	m_strNewMapTextureSet.clear();
 
 	//////////////////////////////////////////////////////////////////////////
 	m_dwNewMonsterVID = 0;
@@ -556,12 +585,17 @@ void CMapManagerAccessor::RefreshObjectHeight (float fx, float fy, float fHalfSi
 				const char* c_szPropertyType;
 				if (pProperty->GetString ("PropertyType", &c_szPropertyType))
 				{
-					if (prt::PROPERTY_TYPE_DUNGEON_BLOCK == prt::GetPropertyType (c_szPropertyType))
-					{
-						continue;
-					}
-				}
+			if (prt::PROPERTY_TYPE_DUNGEON_BLOCK == prt::GetPropertyType (c_szPropertyType))
+			{
+				continue;
 			}
+			if (prt::PROPERTY_TYPE_BUILDING == prt::GetPropertyType (c_szPropertyType) &&
+				!CWorldEditorConfig::Instance().DetectMdatrHeight())
+			{
+				continue;
+			}
+		}
+	}
 
 			float fxDistance = fabs (pObjectData->Position.x - fx);
 			float fyDistance = fabs (pObjectData->Position.y - fy);
@@ -580,6 +614,40 @@ bool CMapManagerAccessor::AddTerrainTexture (const char* pFilename)
 
 	if (!pTextureSet->AddTexture (pFilename, 4.0f, 4.0f, 0.0f, 0.0f, true, 0, 0, 1.0f / (float) (CTerrainImpl::PATCH_XSIZE * CTerrainImpl::CELLSCALE)))
 	{
+		return false;
+	}
+
+	ResetTerrainTexture();
+	return true;
+}
+
+bool CMapManagerAccessor::ChangeTerrainTexture (long lTexNum, const char* pFilename)
+{
+	CTextureSet * pTextureSet = CTerrain::GetTextureSet();
+	if (!pTextureSet || lTexNum <= 0 || (unsigned long) lTexNum >= pTextureSet->GetTextureCount())
+	{
+		LogBoxf ("TextureSet: You cannot delete the #%u texture.", (unsigned) lTexNum);
+		return false;
+	}
+
+	for (unsigned long i = 1; i < pTextureSet->GetTextureCount(); ++i)
+	{
+		if ((long) i == lTexNum)
+		{
+			continue;
+		}
+		if (0 == pTextureSet->GetTexture (i).stFilename.compare (pFilename))
+		{
+			LogBox ("Texture of the same name already exists.", "Duplicate");
+			return false;
+		}
+	}
+
+	TTerrainTexture & rTex = pTextureSet->GetTexture ((unsigned long) lTexNum);
+	const float fBase = 1.0f / (float) (CTerrainImpl::PATCH_XSIZE * CTerrainImpl::CELLSCALE);
+	if (!pTextureSet->SetTexture ((unsigned long) lTexNum, pFilename, rTex.UScale, rTex.VScale, rTex.UOffset, rTex.VOffset, rTex.bSplat, rTex.Begin, rTex.End, fBase))
+	{
+		LogBoxf ("[%s] Failed to add a new textureset texture.", pFilename);
 		return false;
 	}
 
@@ -753,6 +821,277 @@ void CMapManagerAccessor::AddSelectedObjectRotation (float fYaw, float fPitch, f
 
 		pArea->AddSelectedObjectRotation (fYaw, fPitch, fRoll);
 	}
+}
+
+void CMapManagerAccessor::ResetSelectedObjectHeightToTerrain()
+{
+	for (int i = 0; i < AROUND_AREA_NUM; ++i)
+	{
+		CAreaAccessor * pArea;
+		if (!GetArea (i, &pArea))
+			continue;
+		pArea->ResetSelectedObjectHeightToTerrain();
+	}
+}
+
+void CMapManagerAccessor::ResetSelectedObjectRotation()
+{
+	for (int i = 0; i < AROUND_AREA_NUM; ++i)
+	{
+		CAreaAccessor * pArea;
+		if (!GetArea (i, &pArea))
+			continue;
+		pArea->ResetSelectedObjectRotation();
+	}
+}
+
+bool CMapManagerAccessor::RotateSelectedObjectAroundPivot (float fYaw)
+{
+	double dX = 0.0;
+	double dY = 0.0;
+	int iCount = 0;
+	for (int i = 0; i < AROUND_AREA_NUM; ++i)
+	{
+		CAreaAccessor * pArea;
+		if (!GetArea (i, &pArea))
+			continue;
+		pArea->AccumulateSelectionPivot (dX, dY, iCount);
+	}
+	if (iCount <= 0)
+	{
+		Tracef ("No selection or failed to get pivot\n");
+		return false;
+	}
+	const float fPivotX = (float) (dX / iCount);
+	const float fPivotY = (float) (dY / iCount);
+	for (int i = 0; i < AROUND_AREA_NUM; ++i)
+	{
+		CAreaAccessor * pArea;
+		if (!GetArea (i, &pArea))
+			continue;
+		pArea->RotateSelectedObjectAroundPivot (fPivotX, fPivotY, fYaw);
+	}
+	return true;
+}
+
+static void SetClipboardText (const std::string & c_rstrText)
+{
+	if (!OpenClipboard (NULL))
+		return;
+	EmptyClipboard();
+	const SIZE_T nBytes = c_rstrText.size() + 1;
+	HGLOBAL hMem = GlobalAlloc (GMEM_MOVEABLE, nBytes);
+	if (hMem)
+	{
+		char * pDst = (char*) GlobalLock (hMem);
+		if (pDst)
+		{
+			memcpy (pDst, c_rstrText.c_str(), nBytes);
+			GlobalUnlock (hMem);
+			SetClipboardData (CF_TEXT, hMem);
+		}
+		else
+		{
+			GlobalFree (hMem);
+		}
+	}
+	CloseClipboard();
+}
+
+static bool GetClipboardText (std::string & rstrText)
+{
+	if (!OpenClipboard (NULL))
+		return false;
+	HANDLE hMem = GetClipboardData (CF_TEXT);
+	if (!hMem)
+	{
+		CloseClipboard();
+		return false;
+	}
+	const char * pSrc = (const char*) GlobalLock (hMem);
+	if (!pSrc)
+	{
+		CloseClipboard();
+		return false;
+	}
+	rstrText = pSrc;
+	GlobalUnlock (hMem);
+	CloseClipboard();
+	return true;
+}
+
+void CMapManagerAccessor::CopySelectedObjectsToClipboard()
+{
+	std::string strText;
+	for (int i = 0; i < AROUND_AREA_NUM; ++i)
+	{
+		CAreaAccessor * pArea;
+		if (!GetArea (i, &pArea))
+			continue;
+		pArea->CopySelectedObjects (strText);
+	}
+	if (!strText.empty())
+		SetClipboardText (strText);
+}
+
+void CMapManagerAccessor::PasteObjectsFromClipboard()
+{
+	std::string strText;
+	if (!GetClipboardText (strText))
+		return;
+
+	std::string strLine;
+	for (size_t i = 0; i <= strText.size(); ++i)
+	{
+		const char ch = i < strText.size() ? strText[i] : '\n';
+		if (ch == '\n' || ch == '\r')
+		{
+			if (!strLine.empty())
+			{
+				unsigned uCrc = 0;
+				unsigned uRange = 0;
+				float fX = 0, fY = 0, fZ = 0, fYaw = 0, fPitch = 0, fRoll = 0, fUnused = 0, fVolume = 0;
+				unsigned uPortal[PORTAL_ID_MAX_NUM];
+				memset (uPortal, 0, sizeof (uPortal));
+				const int nRead = sscanf (strLine.c_str(), "WEOBJ %u %f %f %f %f %f %f %f %u %f %u %u %u %u %u %u %u %u",
+					&uCrc, &fX, &fY, &fZ, &fYaw, &fPitch, &fRoll, &fUnused, &uRange, &fVolume,
+					&uPortal[0], &uPortal[1], &uPortal[2], &uPortal[3], &uPortal[4], &uPortal[5], &uPortal[6], &uPortal[7]);
+				if (nRead >= 10)
+				{
+					const WORD wIndex = GetTerrainNum (fX, fY);
+					CAreaAccessor * pArea = NULL;
+					if (GetArea (wIndex, &pArea) && pArea)
+					{
+						CArea::TObjectData kData;
+						memset (&kData, 0, sizeof (kData));
+						kData.Position.x = fX;
+						kData.Position.y = fY;
+						kData.Position.z = 0.0f;
+						CTerrainAccessor * pTerrain = NULL;
+						if (GetTerrain (wIndex, &pTerrain) && pTerrain)
+							kData.Position.z = pTerrain->GetHeight ((int) fX, - (int) fY);
+						kData.dwCRC = uCrc;
+						kData.m_fYaw = fYaw;
+						kData.m_fPitch = fPitch;
+						kData.m_fRoll = fRoll;
+						kData.m_fHeightBias = fZ;
+						kData.dwRange = uRange;
+						kData.fMaxVolumeAreaPercentage = fVolume;
+						for (int p = 0; p < PORTAL_ID_MAX_NUM; ++p)
+							kData.abyPortalID[p] = (BYTE) uPortal[p];
+						pArea->AddCopiedObject (kData);
+					}
+				}
+			}
+			strLine.clear();
+		}
+		else
+		{
+			strLine += ch;
+		}
+	}
+}
+
+static std::string FolderNameOf (const std::string & c_rstrPath)
+{
+	const size_t nSlash = c_rstrPath.find_last_of ("\\/");
+	if (nSlash == std::string::npos)
+		return c_rstrPath;
+	return c_rstrPath.substr (nSlash + 1);
+}
+
+static std::string ParentOf (const std::string & c_rstrPath)
+{
+	const size_t nSlash = c_rstrPath.find_last_of ("\\/");
+	if (nSlash == std::string::npos)
+		return ".";
+	return c_rstrPath.substr (0, nSlash);
+}
+
+static std::string StampNow()
+{
+	SYSTEMTIME kTime;
+	GetLocalTime (&kTime);
+	char szStamp[32];
+	_snprintf (szStamp, sizeof (szStamp), "%04u%02u%02u-%02u%02u%02u",
+		kTime.wYear, kTime.wMonth, kTime.wDay, kTime.wHour, kTime.wMinute, kTime.wSecond);
+	return szStamp;
+}
+
+static std::string LayoutFolder (const std::string & c_rstrRoot, const std::string & c_rstrMap, const std::string & c_rstrStamp, int iMode, bool bUnderscore)
+{
+	const char * c_szJoin = bUnderscore ? "_" : "";
+	switch (iMode)
+	{
+		case 1:
+			return c_rstrRoot + "\\" + c_rstrMap + "\\" + c_rstrStamp;
+		case 2:
+			return c_rstrRoot + "\\" + c_rstrStamp + c_szJoin + c_rstrMap;
+		case 3:
+			return c_rstrRoot + "\\" + c_rstrStamp + "\\" + c_rstrMap;
+		default:
+			return c_rstrRoot + "\\" + c_rstrMap + c_szJoin + c_rstrStamp;
+	}
+}
+
+static bool CopyFolderTree (const std::string & c_rstrFrom, const std::string & c_rstrTo)
+{
+	try
+	{
+		std::filesystem::create_directories (std::filesystem::path (c_rstrTo).parent_path());
+		std::filesystem::copy (c_rstrFrom, c_rstrTo, std::filesystem::copy_options::recursive | std::filesystem::copy_options::overwrite_existing);
+		return true;
+	}
+	catch (...)
+	{
+		return false;
+	}
+}
+
+void CMapManagerAccessor::BackupMapFolder (const std::string & c_rstrMapFolder)
+{
+	if (!CWorldEditorConfig::Instance().AutoBackup())
+		return;
+	const std::string strMap = FolderNameOf (c_rstrMapFolder);
+	std::string strRoot = CWorldEditorConfig::Instance().AutoBackupFolder();
+	if (strRoot.find (':') == std::string::npos && strRoot.find ("\\\\") != 0)
+		strRoot = ParentOf (c_rstrMapFolder) + "\\" + strRoot;
+	const std::string strDest = LayoutFolder (strRoot, strMap, StampNow(), CWorldEditorConfig::Instance().AutoBackupSubfolderMode(), true);
+	if (!CopyFolderTree (c_rstrMapFolder, strDest))
+		Tracef ("Auto-backup failed for %s -> %s\n", c_rstrMapFolder.c_str(), strDest.c_str());
+}
+
+bool CMapManagerAccessor::ReloadCurrentMap()
+{
+	if (!IsMapReady() || !m_pMapAccessor)
+		return false;
+	const std::string strName = m_pMapAccessor->GetName();
+	if (strName.empty())
+		return false;
+	return LoadMap (strName);
+}
+
+bool CMapManagerAccessor::ExportCurrentMap()
+{
+	if (!IsMapReady() || !m_pMapAccessor)
+		return false;
+	const std::string strName = m_pMapAccessor->GetName();
+	if (strName.empty())
+		return false;
+	if (AfxMessageBox ("This will Export everything loaded in your memory.", MB_OKCANCEL | MB_ICONINFORMATION) != IDOK)
+		return false;
+	const std::string strMap = FolderNameOf (strName);
+	std::string strRoot = CWorldEditorConfig::Instance().ExportFolder();
+	if (strRoot.find (':') == std::string::npos && strRoot.find ("\\\\") != 0)
+		strRoot = ParentOf (strName) + "\\" + strRoot;
+	const std::string strDest = LayoutFolder (strRoot, strMap, StampNow(), CWorldEditorConfig::Instance().ExportSubfolderMode(), false);
+	if (!CopyFolderTree (strName, strDest))
+	{
+		LogBoxf ("Export failed: %s", strDest.c_str());
+		return false;
+	}
+	LogBoxf ("Exported map to %s", strDest.c_str());
+	return true;
 }
 
 void CMapManagerAccessor::SetSelectedObjectPortalNumber (int iID)
@@ -1060,6 +1399,8 @@ bool CMapManagerAccessor::SaveMap (const char* c_szMapName)
 		return false;
 	}
 
+	BackupMapFolder (strMapFolder);
+
 	// Map Property
 	if (!SaveMapProperty (strMapFolder))
 	{
@@ -1092,7 +1433,109 @@ bool CMapManagerAccessor::SaveMap (const char* c_szMapName)
 		return false;
 	}
 
-	LogBoxf ("[SUCCESS] SaveMap: Save complete. Dir: [%s]", strMapFolder.c_str());
+	if (!SaveServerAttr (strMapFolder))
+	{
+		LogBoxf ("[ERROR] SaveMap: Failed to save server_attr. Dir: [%s].", strMapFolder.c_str());
+	}
+
+	LogBoxf ("[SUCCESS] SaveMap: Save complete. server_attr: [%s\\server_attr]", strMapFolder.c_str());
+	return true;
+}
+
+bool CMapManagerAccessor::SaveServerAttr()
+{
+	if (!m_pMapAccessor || m_pMapAccessor->GetName().empty())
+	{
+		LogBox ("[ERROR] Save server_attr: load a map first.");
+		return false;
+	}
+
+	const std::string strMapFolder = m_pMapAccessor->GetName();
+	if (!SaveServerAttr (strMapFolder))
+	{
+		LogBoxf ("[ERROR] server_attr was not written. Dir: [%s]", strMapFolder.c_str());
+		return false;
+	}
+
+	LogBoxf ("[SUCCESS] server_attr written: [%s\\server_attr]", strMapFolder.c_str());
+	return true;
+}
+
+bool CMapManagerAccessor::SaveServerAttr (const std::string & c_rstrFolder)
+{
+	if (!m_pMapAccessor)
+	{
+		return false;
+	}
+
+	short sCountX, sCountY;
+	m_pMapAccessor->GetTerrainCount (&sCountX, &sCountY);
+	if (sCountX <= 0 || sCountY <= 0)
+	{
+		return false;
+	}
+
+	const int iCell = CTerrainImpl::ATTRMAP_XSIZE;
+	const int iWidth = sCountX * iCell;
+	const int iHeight = sCountY * iCell;
+	std::vector<BYTE> kAttr ((size_t) iWidth * (size_t) iHeight, 0);
+
+	for (int iTerrainY = 0; iTerrainY < sCountY; ++iTerrainY)
+	{
+		for (int iTerrainX = 0; iTerrainX < sCountX; ++iTerrainX)
+		{
+			char szAttrFile[MAX_PATH];
+			const DWORD dwID = (DWORD) iTerrainX * 1000L + (DWORD) iTerrainY;
+			_snprintf (szAttrFile, MAX_PATH, "%s\\%06u\\attr.atr", c_rstrFolder.c_str(), dwID);
+
+			FILE * pFile = fopen (szAttrFile, "rb");
+			if (!pFile)
+			{
+				continue;
+			}
+
+			WORD wMagic = 0;
+			WORD wWidth = 0;
+			WORD wHeight = 0;
+			if (fread (&wMagic, sizeof (WORD), 1, pFile) != 1 ||
+				fread (&wWidth, sizeof (WORD), 1, pFile) != 1 ||
+				fread (&wHeight, sizeof (WORD), 1, pFile) != 1 ||
+				wWidth == 0 || wHeight == 0)
+			{
+				fclose (pFile);
+				continue;
+			}
+
+			std::vector<BYTE> kTile ((size_t) wWidth * (size_t) wHeight, 0);
+			fread (&kTile[0], 1, kTile.size(), pFile);
+			fclose (pFile);
+
+			for (int y = 0; y < (int) wHeight && y < iCell; ++y)
+			{
+				for (int x = 0; x < (int) wWidth && x < iCell; ++x)
+				{
+					const BYTE byAttr = kTile[(size_t) y * wWidth + x];
+					kAttr[(size_t) (iTerrainY * iCell + y) * iWidth + (iTerrainX * iCell + x)] = byAttr;
+				}
+			}
+		}
+	}
+
+	char szOutFile[MAX_PATH];
+	_snprintf (szOutFile, MAX_PATH, "%s\\server_attr", c_rstrFolder.c_str());
+	FILE * pOut = fopen (szOutFile, "wb");
+	if (!pOut)
+	{
+		LogBoxf ("Failed to save file (%s).", szOutFile);
+		return false;
+	}
+
+	const int iOutWidth = iWidth;
+	const int iOutHeight = iHeight;
+	fwrite (&iOutWidth, sizeof (int), 1, pOut);
+	fwrite (&iOutHeight, sizeof (int), 1, pOut);
+	fwrite (&kAttr[0], 1, kAttr.size(), pOut);
+	fclose (pOut);
 	return true;
 }
 
@@ -1166,6 +1609,11 @@ bool CMapManagerAccessor::CreateNewOutdoorMap()
 	pNewMap->SetType (CMapBase::MAPTYPE_OUTDOOR);
 	pNewMap->SetTerrainCount (m_wNewMapSizeX, m_wNewMapSizeY);
 	pNewMap->SetName (m_strNewMapName);
+
+	if (!pNewMap->PrepareNewTextureSet (m_strNewMapTextureSet.c_str()))
+	{
+		return false;
+	}
 
 	if (!pNewMap->SaveProperty (m_strNewMapName))
 	{
@@ -1440,6 +1888,12 @@ void CMapManagerAccessor::SaveAtlas()
 
 	ilDeleteImages (1, &dstImage);
 
+	if (CWorldEditorConfig::Instance().NoMaiAtlasDump())
+	{
+		LogBoxf ("[SUCCESS] SaveAtlas: Save complete. Name: [%s].", m_pMapAccessor->GetName().c_str());
+		return;
+	}
+
 	sprintf (szFileName, "%s_MAI_atlas.bmp", m_pMapAccessor->GetName().c_str());
 	DeleteFile (szFileName);
 
@@ -1585,6 +2039,11 @@ bool CMapManagerAccessor::LoadMap (const std::string & c_rstrMapName)
 		if (0 < strEnvName.length())
 		{
 			this->LoadEnvironmentScript (("d:/ymir work/environment/" + strEnvName).c_str());
+		}
+
+		if (CWorldEditorConfig::Instance().NoFogOnMapLoad())
+		{
+			EnableFog (FALSE);
 		}
 
 		m_pMapAccessor->SetMonsterNames();

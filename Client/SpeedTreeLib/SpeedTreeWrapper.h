@@ -81,6 +81,8 @@ public:
 
 public:
 	static bool					ms_bSelfShadowOn;
+	static void					SetRotationEnabled (bool bEnabled) { ms_bRotationEnabled = bEnabled; }
+	static bool					IsRotationEnabled() { return ms_bRotationEnabled; }
 
 public:
 	// methods from CGraphicObjectInstance
@@ -177,6 +179,7 @@ private:
 
 	// leaf buffers
 	unsigned short					m_usNumLeafLods;				// the number of leaf LODs
+	unsigned short*					m_pusLeafVertexCount;			// leaves stored in each LOD buffer
 	LPDIRECT3DVERTEXBUFFER9*		m_pLeafVertexBuffer;			// leaf vertex buffer
 	bool*							m_pLeavesUpdatedByCpu;			// stores which LOD's have been updated already per frame
 
@@ -195,6 +198,7 @@ private:
 	CGraphicImageInstance			m_CompositeImageInstance;
 
 	static unsigned int				m_unNumWrappersActive;
+	static bool						ms_bRotationEnabled;
 	static LPDIRECT3DVERTEXSHADER9	ms_lpBranchVertexShader;
 	static LPDIRECT3DVERTEXSHADER9	ms_lpLeafVertexShader;
 };

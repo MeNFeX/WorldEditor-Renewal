@@ -10,6 +10,7 @@
 
 #include "MainFrm.h"
 #include "WorldEditorDoc.h"
+#include "../Util.h"
 
 #ifdef _DEBUG
 	#define new DEBUG_NEW
@@ -105,14 +106,25 @@ BOOL CMapAttributePage::Create (CWnd * pParent)
 
 	CheckRadioButton (IDC_MAP_ATTR_BRUSH_SHAPE_CIRCLE, IDC_MAP_ATTR_BRUSH_SHAPE_SQUARE, IDC_MAP_ATTR_BRUSH_SHAPE_CIRCLE);
 	CheckRadioButton (IDC_RADIO0, IDC_RADIO7, IDC_RADIO0);
-	CheckDlgButton (IDC_CHECK_SHOW_ALLMONSTERAREAINFO, 1);
+	CheckDlgButton (IDC_CHECK_SHOW_ALLMONSTERAREAINFO, CWorldEditorConfig::Instance().ViewMonsterAreaInfo() ? 1 : 0);
 
 	m_ctrAttrScale.SetRange (0, 120);
 	m_SliderMonsterAreaScale.SetRange (0, 120);
-	m_SliderAttrNum.SetRange (0, 15);
+	if (CWorldEditorConfig::Instance().AttrSliderRemoval())
+	{
+		m_SliderAttrNum.SetPos (0);
+		m_SliderAttrNum.EnableWindow (FALSE);
+		m_SliderAttrNum.ShowWindow (SW_HIDE);
+		if (CWnd * pAttrNum = GetDlgItem (IDC_ATTR_NUM))
+			pAttrNum->ShowWindow (SW_HIDE);
+	}
+	else
+	{
+		m_SliderAttrNum.SetRange (0, 15);
+		SetDlgItemInt (IDC_ATTR_NUM, m_SliderAttrNum.GetPos(), FALSE);
+	}
 	UpdateBrushSize();
 	UpdateBrushShape();
-	SetDlgItemInt (IDC_ATTR_NUM, m_SliderAttrNum.GetPos(), FALSE);
 
 	return TRUE;
 }

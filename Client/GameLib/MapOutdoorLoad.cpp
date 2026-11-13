@@ -291,6 +291,9 @@ bool CMapOutdoor::LoadSetting(const char * c_szFileName)
 		return false;
 	}
 
+	m_strSpecialWaterPath = "d:/ymir Work/special/water";
+	m_dwSpecialWaterCount = 30;
+
 	if (!stTokenVectorMap.contains("scripttype"))
 	{
 		TraceError("MapOutdoor::LoadSetting(c_szFileName=%s) - FIND 'scripttype' - FAILED", c_szFileName);
@@ -405,6 +408,19 @@ bool CMapOutdoor::LoadSetting(const char * c_szFileName)
 			m_settings_envDataName = c_rEnvironmentVector[0];
 		else
 			TraceError("CMapOutdoor::LoadSetting(c_szFileName=%s) - Failed to load environment data\n", c_szFileName);
+	}
+
+	if (stTokenVectorMap.contains("specialwaterpath") && !stTokenVectorMap["specialwaterpath"].empty())
+		m_strSpecialWaterPath = stTokenVectorMap["specialwaterpath"][0];
+
+	if (stTokenVectorMap.contains("specialwatercount") && !stTokenVectorMap["specialwatercount"].empty())
+	{
+		int iCount = atoi(stTokenVectorMap["specialwatercount"][0].c_str());
+		if (iCount < 1)
+			iCount = 1;
+		if (iCount > 30)
+			iCount = 30;
+		m_dwSpecialWaterCount = (DWORD)iCount;
 	}
 
 	m_fWaterTexCoordBase = 1.0f / (float)(CTerrainImpl::CELLSCALE * 4);

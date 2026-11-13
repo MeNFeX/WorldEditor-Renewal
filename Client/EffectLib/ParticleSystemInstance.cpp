@@ -243,16 +243,40 @@ void CParticleSystemInstance::CreateParticles(float fElapsedTime)
 		// Simple Update
 		{
 			pInstance->m_v3LastPosition = pInstance->m_v3Position - (pInstance->m_v3Velocity * fElapsedTime);
-			pInstance->m_v2Scale.x = m_pParticleProperty->m_TimeEventScaleX.front().m_Value;
-			pInstance->m_v2Scale.y= m_pParticleProperty->m_TimeEventScaleY.front().m_Value;
+			pInstance->m_v2Scale.x = m_pParticleProperty->m_TimeEventScaleX.empty() ? 1.0f : m_pParticleProperty->m_TimeEventScaleX.front().m_Value;
+			pInstance->m_v2Scale.y = m_pParticleProperty->m_TimeEventScaleY.empty() ? 1.0f : m_pParticleProperty->m_TimeEventScaleY.front().m_Value;
 			//pInstance->m_v2Scale = m_pParticleProperty->m_TimeEventScaleXY.front().m_Value;
 #ifdef WORLD_EDITOR
-			pInstance->m_Color.r = m_pParticleProperty->m_TimeEventColorRed.front().m_Value;
-			pInstance->m_Color.g = m_pParticleProperty->m_TimeEventColorGreen.front().m_Value;
-			pInstance->m_Color.b = m_pParticleProperty->m_TimeEventColorBlue.front().m_Value;
-			pInstance->m_Color.a = m_pParticleProperty->m_TimeEventAlpha.front().m_Value;
+			if (m_pParticleProperty->m_TimeEventColorRed.empty())
+			{
+				TraceError("TimeEventColorRed is empty inside the .mse file: add 4 floats inside to fix");
+				pInstance->m_Color.r = 1.0f;
+			}
+			else
+				pInstance->m_Color.r = m_pParticleProperty->m_TimeEventColorRed.front().m_Value;
+			if (m_pParticleProperty->m_TimeEventColorGreen.empty())
+			{
+				TraceError("TimeEventColorGreen is empty inside the .mse file: add 4 floats inside to fix");
+				pInstance->m_Color.g = 1.0f;
+			}
+			else
+				pInstance->m_Color.g = m_pParticleProperty->m_TimeEventColorGreen.front().m_Value;
+			if (m_pParticleProperty->m_TimeEventColorBlue.empty())
+			{
+				TraceError("TimeEventColorBlue is empty inside the .mse file: add 4 floats inside to fix");
+				pInstance->m_Color.b = 1.0f;
+			}
+			else
+				pInstance->m_Color.b = m_pParticleProperty->m_TimeEventColorBlue.front().m_Value;
+			if (m_pParticleProperty->m_TimeEventAlpha.empty())
+			{
+				TraceError("TimeEventAlpha is empty inside the .mse file: add 4 floats inside to fix");
+				pInstance->m_Color.a = 1.0f;
+			}
+			else
+				pInstance->m_Color.a = m_pParticleProperty->m_TimeEventAlpha.front().m_Value;
 #else
-			pInstance->m_dcColor = m_pParticleProperty->m_TimeEventColor.front().m_Value;
+			pInstance->m_dcColor = m_pParticleProperty->m_TimeEventColor.empty() ? D3DXCOLOR(1.0f, 1.0f, 1.0f, 1.0f) : m_pParticleProperty->m_TimeEventColor.front().m_Value;
 #endif
 		}
 

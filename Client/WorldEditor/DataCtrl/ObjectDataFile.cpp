@@ -205,7 +205,7 @@ BOOL CObjectData::SaveRaceData (const char* c_szFileName)
 	{
 		TShapeData & rShapeData = m_ShapeData[i];
 
-		PrintfTabs (File, 1, "ShapeData%02d\n", i);
+		PrintfTabs (File, 1, "Group ShapeData%02d\n", i);
 		PrintfTabs (File, 1, "{\n");
 		PrintfTabs (File, 2, "ShapeIndex \t\t %d\n", rShapeData.dwIndex);
 		PrintfTabs (File, 2, "Model \t\t \"%s\"\n", rShapeData.strModelFileName.c_str());

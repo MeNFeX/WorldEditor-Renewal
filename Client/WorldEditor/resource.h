@@ -937,6 +937,13 @@
 #define IDC_PORTAL_LIST                 1465
 #define IDC_PORTAL_SHOW_ALL             1466
 #define IDC_PORTAL_HIDE_ALL             1467
+#define IDC_MAP_FILE_SAVE_SERVER_ATTR   1468
+#define IDC_MAP_FILE_AUTO_SAVE          1469
+#define IDC_MAP_FILE_RELOAD             1470
+#define IDC_MAP_FILE_EXPORT             1471
+#define IDC_MAP_OBJECT_RESET_HEIGHT     1472
+#define IDC_MAP_OBJECT_RESET_ROTATION   1473
+#define IDC_MAP_OBJECT_HIERARCHY        1474
 #define ID_BUTTON32778                  32778
 #define ID_BUTTON32779                  32779
 #define ID_VIEW_FLY                     32779
@@ -959,7 +966,7 @@
 		#define _APS_3D_CONTROLS                     1
 		#define _APS_NEXT_RESOURCE_VALUE        222
 		#define _APS_NEXT_COMMAND_VALUE         32800
-		#define _APS_NEXT_CONTROL_VALUE         1467
+		#define _APS_NEXT_CONTROL_VALUE         1475
 		#define _APS_NEXT_SYMED_VALUE           101
 	#endif
 #endif
