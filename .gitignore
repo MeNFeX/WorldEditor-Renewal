@@ -399,3 +399,8 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+
+# WorldEditor build output and runtime data
+/.build/
+/Runtime/
+Extern/lib/cryptlib-Debug.lib

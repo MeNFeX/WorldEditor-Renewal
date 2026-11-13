@@ -28,9 +28,6 @@ Done.
 NOTE: I don't have a PRTerrainlib, instead I use TerrainLib directory only.
 So don't forget to edit WorldEditor.vcxproj file to target correct vcxproj locations.
 
-Now you must have a D:\ disc. I recommed you to spare 20GB from your main disc and create a D:\ disc.
-Copy your "ymir work" folder from your pack to D:\
-Copy all DLL's inside D_Disc folder to D:\
-Copy all your maps, textureset, property folders to D:\
+
 
 Now compile and run WorldEditor_Debug_Win32.exe in D:\

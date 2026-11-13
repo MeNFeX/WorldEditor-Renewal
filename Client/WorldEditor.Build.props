@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <WorldEditorRoot>$(MSBuildThisFileDirectory)..\</WorldEditorRoot>
+    <WorldEditorDataDirectory Condition="'$(WorldEditorDataDirectory)'==''">D:\ymir work</WorldEditorDataDirectory>
+    <OutDir>$(WorldEditorRoot).build\lib\$(Configuration)\</OutDir>
+    <OutDir Condition="'$(MSBuildProjectName)'=='WorldEditor'">$(WorldEditorDataDirectory)\</OutDir>
+    <IntDir>$(WorldEditorRoot).build\obj\$(MSBuildProjectName)\$(Configuration)\</IntDir>
+    <LocalDebuggerWorkingDirectory>$(WorldEditorDataDirectory)</LocalDebuggerWorkingDirectory>
+    <VcpkgEnabled>false</VcpkgEnabled>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <PreprocessorDefinitions>WORLD_EDITOR;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(WorldEditorRoot)Extern\include;$(WorldEditorRoot)Extern\include\Python27;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <ProgramDataBaseFileName>$(IntDir)$(MSBuildProjectName).pdb</ProgramDataBaseFileName>
+      <PrecompiledHeaderOutputFile>$(IntDir)$(MSBuildProjectName).pch</PrecompiledHeaderOutputFile>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Link>
+      <ProgramDatabaseFile Condition="'$(MSBuildProjectName)'=='WorldEditor'">$(IntDir)$(TargetName).pdb</ProgramDatabaseFile>
+      <AdditionalLibraryDirectories>$(WorldEditorRoot)Extern\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <IgnoreSpecificDefaultLibraries Condition="'$(Configuration)'=='WE-Debug'">libcmt.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+    </Link>
+  </ItemDefinitionGroup>
+  <Target Name="CopyWorldEditorRuntime" AfterTargets="Build" Condition="'$(MSBuildProjectName)'=='WorldEditor'">
+    <ItemGroup>
+      <WorldEditorOldDll Include="$(WorldEditorDataDirectory)\granny2.dll;$(WorldEditorDataDirectory)\DevIL.dll;$(WorldEditorDataDirectory)\ILU.dll;$(WorldEditorDataDirectory)\python27.dll;$(WorldEditorDataDirectory)\MSS32.DLL;$(WorldEditorDataDirectory)\SpeedTreeRT.dll" />
+      <WorldEditorOldDll Remove="@(WorldEditorOldDll)" Condition="!Exists('%(Identity)') Or Exists('$(WorldEditorDataDirectory)\.worldeditor-backup\%(Filename)%(Extension).bak')" />
+      <WorldEditorRuntimeDll Include="$(WorldEditorRoot)Extern\dll\DevIL.dll;$(WorldEditorRoot)Extern\dll\ILU.dll;$(WorldEditorRoot)D_Disc\python27.dll;$(WorldEditorRoot)D_Disc\MSS32.DLL;$(WorldEditorRoot)D_Disc\SpeedTreeRT.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(WorldEditorOldDll)" DestinationFiles="@(WorldEditorOldDll->'$(WorldEditorDataDirectory)\.worldeditor-backup\%(Filename)%(Extension).bak')" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(WorldEditorRuntimeDll)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(WorldEditorRoot)Extern\dll\granny2.11.8.0.dll" DestinationFiles="$(OutDir)granny2.dll" SkipUnchangedFiles="true" />
+  </Target>
+</Project>
