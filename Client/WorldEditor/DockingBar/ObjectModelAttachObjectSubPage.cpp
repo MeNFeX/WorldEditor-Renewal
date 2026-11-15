@@ -77,7 +77,7 @@ void CObjectModelAttachObjectSubPage::UpdateUI()
 
 void CObjectModelAttachObjectSubPage::OnLoadModel()
 {
-	DWORD dwFlag = OFN_NOCHANGEDIR;
+	DWORD dwFlag = OFN_NOCHANGEDIR | OFN_ENABLESIZING;
 	const char* c_szFilter = "Metin2 Model Script Files (*.gr2)|*.gr2|*.*|All Files (*.*)|";
 	CFileDialog FileOpener (TRUE, "Load", "", dwFlag, c_szFilter, this);
 

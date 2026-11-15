@@ -3,6 +3,7 @@
 
 #include "../eterlib/GrpVertexBuffer.h"
 #include "../eterlib/GrpIndexBuffer.h"
+#include <cmath>
 
 #define TERRAIN_PATCHSIZE	16
 #define TERRAIN_SIZE		128
@@ -63,8 +64,18 @@ typedef struct STerrainGlobals
 	D3DXVECTOR3		SunLocation;
 } TTerrainGlobals;
 
-/* Converts a floating point number to an integer by truncation, using
-   the FISTP instruction */
+/* x87 FISTP is 32-bit only. On x64 the same rounding is done in C++:
+   PR_FLOAT_TO_INT floors, the other two round to nearest. */
+#if defined(_WIN64)
+#define PR_FLOAT_TO_FIXED(inreal, outint) \
+	(outint) = static_cast<long>(std::lround(static_cast<double>(inreal) * 65536.0))
+
+#define PR_FLOAT_TO_INT(inreal, outint) \
+	(outint) = static_cast<long>(std::floor(static_cast<double>(inreal)))
+
+#define PR_FLOAT_ADD_TO_INT(inreal, outint) \
+	(outint) += static_cast<long>(std::lround(static_cast<double>(inreal)))
+#else
 #define PR_FLOAT_TO_INTASM __asm	\
 {									\
 	__asm fld PR_FCNV				\
@@ -91,6 +102,7 @@ typedef struct STerrainGlobals
     PR_FLOAT_TO_INTASM;						\
 	(outint) += PR_ICNV;					\
 }
+#endif
 
 #endif //__TERRAIn_TYPES__
 

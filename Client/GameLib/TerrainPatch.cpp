@@ -116,7 +116,7 @@ void CTerrainPatch::__BuildHardwareTerrainVertexBuffer(HardwareTransformPatch_SS
 	}
 }
 
-void CTerrainPatch::SoftwareTransformPatch_UpdateTerrainLighting(DWORD dwVersion, const D3DLIGHT9& c_rkLight, const D3DMATERIAL9& c_rkMtrl)
+void CTerrainPatch::SoftwareTransformPatch_UpdateTerrainLighting(DWORD_PTR dwVersion, const D3DLIGHT9& c_rkLight, const D3DMATERIAL9& c_rkMtrl)
 {
 	if (m_dwVersion==dwVersion)
 		return;
@@ -197,7 +197,7 @@ bool CTerrainPatchProxy::IsIn(const D3DXVECTOR3& c_rv3Target, float fRadius) con
 	return false;
 }
 
-void CTerrainPatchProxy::SoftwareTransformPatch_UpdateTerrainLighting(DWORD dwVersion, const D3DLIGHT9& c_rkLight, const D3DMATERIAL9& c_rkMtrl) const
+void CTerrainPatchProxy::SoftwareTransformPatch_UpdateTerrainLighting(DWORD_PTR dwVersion, const D3DLIGHT9& c_rkLight, const D3DMATERIAL9& c_rkMtrl) const
 {
 	if (m_pTerrainPatch)
 		m_pTerrainPatch->SoftwareTransformPatch_UpdateTerrainLighting(dwVersion, c_rkLight, c_rkMtrl);

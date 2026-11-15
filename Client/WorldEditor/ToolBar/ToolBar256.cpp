@@ -75,7 +75,7 @@ BOOL CToolBar256::LoadBitmap (LPCTSTR lpszResourceName)
 
 
 #define CLR_TO_RGBQUAD(clr)     (RGB(GetBValue(clr), GetGValue(clr), GetRValue(clr)))
-HBITMAP CToolBar256::GetBitmap256 (HINSTANCE hInst, HRSRC hRsrc, BOOL bMono)
+HBITMAP CToolBar256::GetBitmap256 (HINSTANCE hInst, HRSRC hRsrc, BOOL bMono, BOOL bMapSysColors)
 {
 	HGLOBAL hglb;
 	if ((hglb = LoadResource (hInst, hRsrc)) == NULL)
@@ -118,12 +118,15 @@ HBITMAP CToolBar256::GetBitmap256 (HINSTANCE hInst, HRSRC hRsrc, BOOL bMono)
 
 	const DWORD mc = 0x00ff00ff;
 
-	for (int iColor = 0; iColor < nColorTableSize; iColor++)
+	if (bMapSysColors)
 	{
-		// look for matching RGBQUAD color in original
-		if (pColorTable[iColor] == mc)
+		for (int iColor = 0; iColor < nColorTableSize; iColor++)
 		{
-			pColorTable[iColor] = CLR_TO_RGBQUAD (::GetSysColor (COLOR_BTNFACE));
+			// look for matching RGBQUAD color in original
+			if (pColorTable[iColor] == mc)
+			{
+				pColorTable[iColor] = CLR_TO_RGBQUAD (::GetSysColor (COLOR_BTNFACE));
+			}
 		}
 	}
 
@@ -160,8 +163,10 @@ void CToolBar256::OnSysColorChange()
 {
 	CToolBar::OnSysColorChange();
 
-	// TODO: Add your message handler code here
-	LoadBitmap (m_nBitmapID);
+	if (m_nBitmapID == IDB_MAINFRAME_LARGE)
+		InstallLargeIcons (IDB_MAINFRAME_LARGE, m_sizeImage.cx, m_sizeImage.cy);
+	else
+		LoadBitmap (m_nBitmapID);
 }
 
 BOOL CToolBar256::AddReplaceBitmap (HBITMAP hbmImageWell)
@@ -176,7 +181,7 @@ BOOL CToolBar256::AddReplaceBitmap (HBITMAP hbmImageWell)
 	{
 		TBADDBITMAP addBitmap;
 		addBitmap.hInst = NULL; // makes TBADDBITMAP::nID behave a HBITMAP
-		addBitmap.nID = (UINT)hbmImageWell;
+		addBitmap.nID = reinterpret_cast<UINT_PTR>(hbmImageWell);
 		bResult =  DefWindowProc (TB_ADDBITMAP,
 		bitmap.bmWidth / m_sizeImage.cx, (LPARAM)&addBitmap) == 0;
 	}
@@ -184,9 +189,9 @@ BOOL CToolBar256::AddReplaceBitmap (HBITMAP hbmImageWell)
 	{
 		TBREPLACEBITMAP replaceBitmap;
 		replaceBitmap.hInstOld = NULL;
-		replaceBitmap.nIDOld = (UINT)m_hbmImageWell;
+		replaceBitmap.nIDOld = reinterpret_cast<UINT_PTR>(m_hbmImageWell);
 		replaceBitmap.hInstNew = NULL;
-		replaceBitmap.nIDNew = (UINT)hbmImageWell;
+		replaceBitmap.nIDNew = reinterpret_cast<UINT_PTR>(hbmImageWell);
 		replaceBitmap.nButtons = bitmap.bmWidth / m_sizeImage.cx;
 		bResult = (BOOL)DefWindowProc (TB_REPLACEBITMAP, 0,
 									   (LPARAM)&replaceBitmap);
@@ -200,4 +205,49 @@ BOOL CToolBar256::AddReplaceBitmap (HBITMAP hbmImageWell)
 	}
 
 	return bResult;
+}
+
+BOOL CToolBar256::InstallLargeIcons (int nResourceID, int cx, int cy)
+{
+	HINSTANCE hInst = AfxFindResourceHandle (MAKEINTRESOURCE (nResourceID), RT_BITMAP);
+	HRSRC hRsrc = ::FindResource (hInst, MAKEINTRESOURCE (nResourceID), RT_BITMAP);
+	if (hRsrc == NULL)
+		return FALSE;
+
+	HBITMAP hbm = GetBitmap256 (hInst, hRsrc, FALSE, FALSE);
+	if (hbm == NULL)
+		return FALSE;
+
+	HIMAGELIST oldList = (HIMAGELIST) ::SendMessage (m_hWnd, TB_SETIMAGELIST, 0, 0);
+	if (oldList != NULL)
+		::ImageList_Destroy (oldList);
+	if (m_hbmImageWell != NULL)
+	{
+		::DeleteObject (m_hbmImageWell);
+		m_hbmImageWell = NULL;
+	}
+
+	m_sizeImage = CSize (cx, cy);
+	m_sizeButton = CSize (cx + 7, cy + 6);
+	::SendMessage (m_hWnd, TB_SETBITMAPSIZE, 0, MAKELONG (cx, cy));
+	::SendMessage (m_hWnd, TB_SETBUTTONSIZE, 0, MAKELONG (m_sizeButton.cx, m_sizeButton.cy));
+
+	BITMAP bitmap;
+	::GetObject (hbm, sizeof (BITMAP), &bitmap);
+	const int nButtons = bitmap.bmWidth / cx;
+	HIMAGELIST images = ::ImageList_Create (cx, cy, ILC_COLOR24 | ILC_MASK, nButtons, 0);
+	if (images == NULL)
+	{
+		::DeleteObject (hbm);
+		return FALSE;
+	}
+	::ImageList_AddMasked (images, hbm, RGB (255, 0, 255));
+	::SendMessage (m_hWnd, TB_SETIMAGELIST, 0, (LPARAM) images);
+
+	m_hbmImageWell = hbm;
+	m_hInstImageWell = hInst;
+	m_hRsrcImageWell = hRsrc;
+	m_nBitmapID = nResourceID;
+	Invalidate();
+	return TRUE;
 }

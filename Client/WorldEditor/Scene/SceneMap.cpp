@@ -14,6 +14,7 @@
 #include "../../MilesLib/SoundManager.h"
 #include "../DataCtrl/MiniMapRenderHelper.h"
 #include "../Util.h"
+#include "../../EterLib/EditorFrameLog.h"
 
 static DWORD s_dwClipboardPasteAt = 0;
 static bool s_bClipboardPasted = false;
@@ -165,6 +166,7 @@ void CSceneMap::OnUpdate()
 	//	CCullingManager::Instance().Update();
 
 	CEffectManager::Instance().Update();
+	EditorFrameMark ("fx.update");
 	if (!m_pMapManagerAccessor->IsMapReady())
 	{
 		return;
@@ -172,6 +174,7 @@ void CSceneMap::OnUpdate()
 
 	m_pMapManagerAccessor->UpdateAutoSave();
 	UpdateRemixMovement();
+	EditorFrameMark ("wasd");
 
 	D3DXVECTOR3 pv3Position = ms_Camera->GetTarget();
 
@@ -179,8 +182,11 @@ void CSceneMap::OnUpdate()
 	m_CursorRenderer.SetCursorPosition (m_vecMouseMapIntersectPosition);
 
 	m_pMapManagerAccessor->UpdateEditing();
+	EditorFrameMark ("editing");
 	m_pMapManagerAccessor->UpdateMap (pv3Position.x, pv3Position.y, pv3Position.z);
+	EditorFrameMark ("map.update");
 	m_pMapManagerAccessor->UpdateAroundAmbience (pv3Position.x, -pv3Position.y, pv3Position.z);
+	EditorFrameMark ("ambience");
 
 	const TOutdoorMapCoordinate & c_rCurCoordinate = m_pMapAccessor->GetCurCoordinate();
 	if (c_rCurCoordinate.m_sTerrainCoordX != m_kPrevCoordinate.m_sTerrainCoordX ||
@@ -196,6 +202,7 @@ void CSceneMap::OnUpdate()
 	CSoundManager::Instance().SetPosition (pv3Position.x, pv3Position.y, pv3Position.z);
 	CSoundManager::Instance().SetDirection (c_rv3CameraDirection.x, c_rv3CameraDirection.y, c_rv3CameraDirection.z, c_rv3CameraUp.x, c_rv3CameraUp.y, c_rv3CameraUp.z);
 	CSoundManager::Instance().Update();
+	EditorFrameMark ("sound");
 
 	// TerrainDecal
 	{
@@ -208,6 +215,7 @@ void CSceneMap::OnUpdate()
 		m_aConpasTerrainDecal.Make (D3DXVECTOR3 (pv3Position.x, pv3Position.y, m_pMapManagerAccessor->GetHeight (pv3Position.x, fabs (pv3Position.y)) + 0.25f), D3DXVECTOR3 (0.0f,
 									0.0f, 1.0f), v3Tangent, s_fWidth, s_fHeight, 1000.0f);
 	}
+	EditorFrameMark ("compass.decal");
 	/*
 		{
 			CCullingManager & rkCullingMgr = CCullingManager::Instance();
@@ -233,6 +241,7 @@ void CSceneMap::OnUpdate()
 
 void CSceneMap::OnRender (BOOL bClear)
 {
+	EditorFrameMark ("render.enter");
 	if (m_bTerrainShadowMapUpdateNeeded)
 	{
 
@@ -288,6 +297,7 @@ void CSceneMap::OnRender (BOOL bClear)
 
 		m_bTerrainShadowMapUpdateNeeded = false;
 	}
+	EditorFrameMark ("shadowmap.rebuild");
 
 	if (bClear)
 	{
@@ -311,6 +321,7 @@ void CSceneMap::OnRender (BOOL bClear)
 
 		m_pMapAccessor->EndRenderCharacterShadowToTexture();
 	}
+	EditorFrameMark ("shadow.character");
 
 	//CCullingManager::Instance().Process();	// FIXME : 그림자 맵에 그림자가 안 그려져서 컬링을 하지 않았다. [cronan]
 
@@ -319,10 +330,12 @@ void CSceneMap::OnRender (BOOL bClear)
 	m_pMapAccessor->RenderSky();
 	m_pMapAccessor->RenderBeforeLensFlare();
 	m_pMapAccessor->RenderCloud();
+	EditorFrameMark ("sky");
 
 	// Environment 적용 부분
 	m_pMapManagerAccessor->RefreshEnvironmentData();
 	m_pMapManagerAccessor->BeginEnvironment();
+	EditorFrameMark ("env");
 	{
 		m_pMapAccessor->SetInverseViewAndDynamicShaodwMatrices();
 
@@ -330,13 +343,19 @@ void CSceneMap::OnRender (BOOL bClear)
 		if (m_bObjectRenderingOn)
 		{
 			m_pMapAccessor->RenderArea();
+		}
+		EditorFrameMark ("objects");
+		if (m_bObjectRenderingOn && CArea::ms_bTreeOut)
+		{
 			CSpeedTreeDirectX::Instance().Render();
 		}
+		EditorFrameMark ("trees");
 
 		if (m_bTerrainRenderingOn)
 		{
 			m_pMapAccessor->RenderTerrain();
 		}
+		EditorFrameMark ("terrain");
 
 		if (m_bGuildAreaRenderingOn)
 		{
@@ -347,11 +366,13 @@ void CSceneMap::OnRender (BOOL bClear)
 		{
 			OnRenderCharacter();
 		}
+		EditorFrameMark ("actors");
 
 		if (m_bWaterRenderingOn)
 		{
 			m_pMapAccessor->RenderWater();
 		}
+		EditorFrameMark ("water");
 
 		if (m_bObjectRenderingOn)
 		{
@@ -364,6 +385,7 @@ void CSceneMap::OnRender (BOOL bClear)
 			STATEMANAGER.SetTextureStageState (1, D3DTSS_ALPHAARG2,	D3DTA_CURRENT);
 			STATEMANAGER.SetTextureStageState (1, D3DTSS_ALPHAOP,	D3DTOP_MODULATE);
 			m_pMapAccessor->RenderDungeon();
+			EditorFrameMark ("dungeon");
 			STATEMANAGER.SetTextureStageState (1, D3DTSS_COLOROP,	D3DTOP_DISABLE);
 			STATEMANAGER.SetTextureStageState (1, D3DTSS_ALPHAOP,	D3DTOP_DISABLE);
 			STATEMANAGER.SetTexture (0, NULL);
@@ -371,8 +393,10 @@ void CSceneMap::OnRender (BOOL bClear)
 			// End Dungeon Rendering - Without Environment
 		}
 
-		m_pMapAccessor->RenderEffect();
+		if (CArea::ms_bEffectOut)
+			m_pMapAccessor->RenderEffect();
 	}
+	EditorFrameMark ("effect");
 
 	m_pMapManagerAccessor->EndEnvironment();
 	// Environment 적용부분 끝
@@ -390,7 +414,8 @@ void CSceneMap::OnRender (BOOL bClear)
 	m_pMapAccessor->RenderAfterLensFlare();
 	m_pMapAccessor->RenderScreenFiltering();
 
-	CEffectManager::Instance().Render();
+	if (CArea::ms_bEffectOut)
+		CEffectManager::Instance().Render();
 
 	//////////////////////////////////////
 	switch (m_iEditingMode)
@@ -440,6 +465,7 @@ void CSceneMap::OnRender (BOOL bClear)
 	}
 	//////////////////////////////////////
 
+	EditorFrameMark ("gizmos");
 	CEffectInstance::ResetRenderingEffectCount();
 }
 
@@ -1273,6 +1299,10 @@ void CSceneMap::OnRenderTerrainEditingArea()
 	{
 		m_CursorRenderer.RenderCursorSquare (fLeft,	fTop, fRight, fBottom, 2 * ucBrushSize);
 	}
+	else if (CTerrainAccessor::BRUSH_SHAPE_TRIANGLE == dwBrushShape)
+	{
+		m_CursorRenderer.RenderCursorTriangle (fx, fy, float (ucBrushSize * CTerrainImpl::CELLSCALE), 24);
+	}
 }
 
 void CSceneMap::OnRenderSelectedObject()
@@ -1287,6 +1317,43 @@ void CSceneMap::OnRenderObjectSettingArea()
 	m_CursorRenderer.RenderCursorArea();
 	SetDiffuseOperation();
 	m_CursorRenderer.Render();
+}
+
+void CSceneMap::SaveAtlasAndMiniMaps()
+{
+	if (!m_pMapManagerAccessor || !m_pMapManagerAccessor->IsMapReady() || !m_pMapAccessor)
+		return;
+
+	CTerrainAccessor * pTerrainAccessor;
+	if (!m_pMapAccessor->GetTerrainPointer (4, (CTerrain**) &pTerrainAccessor))
+	{
+		m_pMapManagerAccessor->SaveAtlas();
+		return;
+	}
+
+	const D3DXVECTOR3 v3CameraBefore = CCameraManager::Instance().GetCurrentCamera()->GetTarget();
+
+	short sCountX, sCountY;
+	m_pMapAccessor->GetTerrainCount (&sCountX, &sCountY);
+
+	CMainFrame * pFrame = (CMainFrame*) AfxGetMainWnd();
+	CWorldEditorView * pView = (CWorldEditorView*) pFrame->GetActiveView();
+
+	for (short x = 0; x < sCountX; ++x)
+	{
+		for (short y = 0; y < sCountY; ++y)
+		{
+			const D3DXVECTOR3 v3Target = CCameraManager::Instance().GetCurrentCamera()->GetTarget();
+			m_pMapManagerAccessor->UpdateMap ((float) (x * CTerrainImpl::TERRAIN_XSIZE), - (float) (y * CTerrainImpl::TERRAIN_YSIZE), 0.0f);
+			pView->UpdateTargetPosition ((float) (x * CTerrainImpl::TERRAIN_XSIZE) - v3Target.x, - (float) (y * CTerrainImpl::TERRAIN_YSIZE) - v3Target.y);
+			m_pMapManagerAccessor->SaveMiniMap();
+			SaveMiniMapWithMonsterAreaInfo();
+		}
+	}
+
+	const D3DXVECTOR3 v3CameraNow = CCameraManager::Instance().GetCurrentCamera()->GetTarget();
+	pView->UpdateTargetPosition (v3CameraBefore.x - v3CameraNow.x, v3CameraBefore.y - v3CameraNow.y);
+	m_pMapManagerAccessor->SaveAtlas();
 }
 
 void CSceneMap::SaveMiniMapWithMonsterAreaInfo()
@@ -1343,9 +1410,10 @@ void CSceneMap::SaveMiniMapWithMonsterAreaInfo()
 	DWORD ulID = (DWORD) (wX) * 1000L + (DWORD) (wY);
 
 	// 그림자 관련 파일들을 시작
-	sprintf (szFileName, "%s\\%06u_minimap.bmp", strFolderName.c_str(), ulID);
+	const bool bPng = CWorldEditorConfig::Instance().ExportMaiAtlasAsPng();
+	sprintf (szFileName, "%s\\%06u_minimap.%s", strFolderName.c_str(), ulID, bPng ? "png" : "bmp");
 	DeleteFile (szFileName);
-	D3DXSaveTextureToFile (szFileName, D3DXIFF_BMP, CMiniMapRenderHelper::Instance().GetMiniMapTexture(), NULL);
+	CTerrainAccessor::SaveTextureToImageFile (CMiniMapRenderHelper::Instance().GetMiniMapTexture(), szFileName, bPng ? D3DXIFF_PNG : D3DXIFF_BMP);
 
 	CMiniMapRenderHelper::Instance().ReleaseTextures();
 	CMiniMapRenderHelper::Instance().SetMiniMapPower (8);
@@ -1663,54 +1731,6 @@ void CSceneMap::OnLButtonDown (UINT nFlags, CPoint point)
 			m_pMapManagerAccessor->SetEditingCursorPosition (m_CursorRenderer.GetCursorPosition());
 			break;
 		case EDITING_MODE_OBJECT:
-			__ClearCursor();
-			break;
-		case EDITING_MODE_ENVIRONMENT:
-			if (0 == (GetAsyncKeyState (VK_LCONTROL) & 0x8000))
-			{
-				m_ptClick = point;
-				m_loldX = m_ptClick.x;
-				m_loldY = m_ptClick.y;
-				LightPositionEditingStart();
-			}
-			break;
-		case EDITING_MODE_ATTRIBUTE:
-			if (0 == (GetAsyncKeyState (VK_LCONTROL) & 0x8000))
-			{
-				m_pMapManagerAccessor->EditingStart();
-			}
-			break;
-	}
-}
-
-void CSceneMap::OnLButtonUp()
-{
-	if (!m_pMapManagerAccessor->IsMapReady())
-	{
-		return;
-	}
-
-	m_pMapManagerAccessor->EditingEnd();
-	m_pMapManagerAccessor->BackupTerrainCurrent();
-	if (EDITING_MODE_ENVIRONMENT == m_iEditingMode)
-	{
-		LightPositionEditingEnd();
-		m_ptClick = CPoint (-1, -1);
-	}
-	m_bCursorYawPitchChange = false;
-	m_CursorRenderer.SetCursor (m_dwCursorObjectCRC);
-}
-
-void CSceneMap::OnRButtonDown()
-{
-	if (!m_pMapManagerAccessor->IsMapReady())
-	{
-		return;
-	}
-
-	switch (m_iEditingMode)
-	{
-		case EDITING_MODE_OBJECT:
 		{
 			if (0 == m_CursorRenderer.GetCurrentCRC())
 			{
@@ -1753,6 +1773,7 @@ void CSceneMap::OnRButtonDown()
 			else
 			{
 				m_pMapManagerAccessor->BackupObject();
+				m_pMapManagerAccessor->CancelSelect();
 
 				DWORD dwObjectCRC = m_CursorRenderer.GetCurrentCRC();
 
@@ -1779,18 +1800,31 @@ void CSceneMap::OnRButtonDown()
 				}
 
 				m_pMapManagerAccessor->BackupObjectCurrent();
+
+				CMainFrame * pFrame = (CMainFrame*) AfxGetMainWnd();
+				pFrame->UpdateMapControlBar();
 			}
 			break;
 		}
-		case EDITING_MODE_ATTRIBUTE:
-		{
-			m_pMapManagerAccessor->SelectMonsterAreaInfoStart();
+		case EDITING_MODE_ENVIRONMENT:
+			if (0 == (GetAsyncKeyState (VK_LCONTROL) & 0x8000))
+			{
+				m_ptClick = point;
+				m_loldX = m_ptClick.x;
+				m_loldY = m_ptClick.y;
+				LightPositionEditingStart();
+			}
 			break;
-		}
+		case EDITING_MODE_ATTRIBUTE:
+			if (0 == (GetAsyncKeyState (VK_LCONTROL) & 0x8000))
+			{
+				m_pMapManagerAccessor->EditingStart();
+			}
+			break;
 	}
 }
 
-void CSceneMap::OnRButtonUp()
+void CSceneMap::OnLButtonUp()
 {
 	m_CursorRenderer.PickEnd();
 	m_CursorRenderer.SelectEnd();
@@ -1799,9 +1833,13 @@ void CSceneMap::OnRButtonUp()
 	{
 		return;
 	}
-	if (EDITING_MODE_ATTRIBUTE == m_iEditingMode)
+
+	m_pMapManagerAccessor->EditingEnd();
+	m_pMapManagerAccessor->BackupTerrainCurrent();
+	if (EDITING_MODE_ENVIRONMENT == m_iEditingMode)
 	{
-		m_pMapManagerAccessor->SelectMonsterAreaInfoEnd();
+		LightPositionEditingEnd();
+		m_ptClick = CPoint (-1, -1);
 	}
 	if (EDITING_MODE_OBJECT == m_iEditingMode)
 	{
@@ -1822,6 +1860,39 @@ void CSceneMap::OnRButtonUp()
 		}
 
 		m_bObjectIsMoved = FALSE;
+	}
+	m_bCursorYawPitchChange = false;
+	m_CursorRenderer.SetCursor (m_dwCursorObjectCRC);
+}
+
+void CSceneMap::OnRButtonDown()
+{
+	if (!m_pMapManagerAccessor->IsMapReady())
+	{
+		return;
+	}
+
+	switch (m_iEditingMode)
+	{
+		case EDITING_MODE_OBJECT:
+			break;
+		case EDITING_MODE_ATTRIBUTE:
+		{
+			m_pMapManagerAccessor->SelectMonsterAreaInfoStart();
+			break;
+		}
+	}
+}
+
+void CSceneMap::OnRButtonUp()
+{
+	if (!m_pMapManagerAccessor->IsMapReady())
+	{
+		return;
+	}
+	if (EDITING_MODE_ATTRIBUTE == m_iEditingMode)
+	{
+		m_pMapManagerAccessor->SelectMonsterAreaInfoEnd();
 	}
 }
 

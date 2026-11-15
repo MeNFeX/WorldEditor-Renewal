@@ -31,7 +31,7 @@ class CParticleSystemInstance : public CEffectElementBaseInstance
 				for (; itor != m_ParticleInstanceListVector[dwFrameIndex].end(); ++itor)
 				{
 					if (!InFrustum(*itor))
-						return;
+						continue;
 					FunObj(*itor);
 				}
 			}

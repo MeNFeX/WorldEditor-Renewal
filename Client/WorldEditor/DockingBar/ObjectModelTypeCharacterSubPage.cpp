@@ -137,7 +137,7 @@ BOOL CObjectModelTypeCharacterSubPage::OnCommand (WPARAM wParam, LPARAM lParam)
 
 void CObjectModelTypeCharacterSubPage::OnLoadHittingSound()
 {
-	DWORD dwFlag = OFN_NOCHANGEDIR;
+	DWORD dwFlag = OFN_NOCHANGEDIR | OFN_ENABLESIZING;
 	const char* c_szFilter = "Sound Files (*.wav)|*.wav|*.*|All Files (*.*)|";
 	CFileDialog FileOpener (TRUE, "Load", "", dwFlag, c_szFilter, this);
 
@@ -158,7 +158,7 @@ void CObjectModelTypeCharacterSubPage::OnClearOneEffect()
 
 void CObjectModelTypeCharacterSubPage::OnLoadHittingEffect()
 {
-	DWORD dwFlag = OFN_NOCHANGEDIR;
+	DWORD dwFlag = OFN_NOCHANGEDIR | OFN_ENABLESIZING;
 	const char* c_szFilter = "Metin2 Effect Script Files (*.mse)|*.mse|*.*|All Files (*.*)|";
 	CFileDialog FileOpener (TRUE, "Load", "", dwFlag, c_szFilter, this);
 

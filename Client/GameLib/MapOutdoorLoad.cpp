@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../eterLib/EditorFrameLog.h"
 #include "MapOutdoor.h"
 #include "AreaTerrain.h"
 #include "AreaLoaderThread.h"
@@ -152,6 +153,9 @@ bool CMapOutdoor::LoadArea(WORD wAreaCoordX, WORD wAreaCoordY, WORD wCellCoordX,
 {
 	if (isAreaLoaded(wAreaCoordX, wAreaCoordY))
 		return true;
+#ifdef WORLD_EDITOR
+	const DWORD dwEditorLoadArea = ELTimer_GetMSec();
+#endif
 #ifdef _DEBUG
 	DWORD dwStartTime = ELTimer_GetMSec();
 #endif
@@ -180,6 +184,9 @@ bool CMapOutdoor::LoadArea(WORD wAreaCoordX, WORD wAreaCoordY, WORD wCellCoordX,
 	pArea->EnablePortal(m_bEnablePortal);
 #ifdef _DEBUG
 	Tracef("CMapOutdoor::LoadArea3 %d\n", ELTimer_GetMSec() - dwStartTime);
+#endif
+#ifdef WORLD_EDITOR
+	EditorFrameNotef("LoadArea %u,%u %u ms", (unsigned) wAreaCoordX, (unsigned) wAreaCoordY, ELTimer_GetMSec() - dwEditorLoadArea);
 #endif
 
 	return true;
@@ -275,6 +282,7 @@ bool CMapOutdoor::LoadTerrain(WORD wTerrainCoordX, WORD wTerrainCoordY, WORD wCe
 	pTerrain->SetReady();
 
 	Tracef("CMapOutdoor::LoadTerrain %d\n", ELTimer_GetMSec() - dwStartTime);
+	EditorFrameNotef("LoadTerrain %u,%u %u ms", (unsigned) wTerrainCoordX, (unsigned) wTerrainCoordY, ELTimer_GetMSec() - dwStartTime);
 
 	m_TerrainVector.push_back(pTerrain);
 

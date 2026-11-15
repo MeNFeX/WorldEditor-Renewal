@@ -364,7 +364,7 @@ BOOL CObjectModelPage::OnCommand (WPARAM wParam, LPARAM lParam)
 
 void CObjectModelPage::OnLoadModel()
 {
-	DWORD dwFlag = OFN_NOCHANGEDIR;
+	DWORD dwFlag = OFN_NOCHANGEDIR | OFN_ENABLESIZING;
 	const char* c_szFilter = "Granny Model Files (*.gr2)|*.gr2|*.*|All Files (*.*)|";
 	CFileDialog FileOpener (TRUE, "Load Model Files", "", dwFlag, c_szFilter, this);
 
@@ -397,7 +397,7 @@ void CObjectModelPage::OnObjectModelSaveAttr()
 	strModelFileName = strModelFileName.NoExtension();
 	strModelFileName += ".txt";
 
-	DWORD dwFlag = OFN_NOCHANGEDIR;
+	DWORD dwFlag = OFN_NOCHANGEDIR | OFN_ENABLESIZING;
 	const char* c_szFilter = "Text Files (*.txt)|*.txt|*.*|All Files (*.*)|";
 	CFileDialog FileOpener (FALSE, "Save Model Attribute Files", strModelFileName.c_str(), dwFlag, c_szFilter, this);
 
@@ -411,7 +411,7 @@ void CObjectModelPage::OnObjectModelSaveAttr()
 
 void CObjectModelPage::OnLoadModelScript()
 {
-	DWORD dwFlag = OFN_NOCHANGEDIR;
+	DWORD dwFlag = OFN_NOCHANGEDIR | OFN_ENABLESIZING;
 	const char* c_szFilter = "Model Script Files (*.msm)|*.msm|Text Files (*.txt)|*.txt|*.*|All Files (*.*)|";
 	CFileDialog FileOpener (TRUE, "Load Model Script Files", "", dwFlag, c_szFilter, this);
 
@@ -441,7 +441,7 @@ void CObjectModelPage::OnLoadModelScript()
 
 void CObjectModelPage::OnSaveModelScript()
 {
-	DWORD dwFlag = OFN_OVERWRITEPROMPT ;
+	DWORD dwFlag = OFN_OVERWRITEPROMPT  | OFN_NOCHANGEDIR | OFN_ENABLESIZING;
 	0 | OFN_NOCHANGEDIR;
 	const char* c_szFilter = "Model Script Files (*.msm)|*.msm|Text Files (*.txt)|*.txt|All Files (*.*)|*.*|";
 	char fname[_MAX_FNAME];

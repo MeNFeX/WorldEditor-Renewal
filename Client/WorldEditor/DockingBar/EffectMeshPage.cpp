@@ -357,7 +357,7 @@ void CEffectMeshPage::RefreshMeshElementList()
 
 void CEffectMeshPage::OnLoadModel()
 {
-	DWORD dwFlag = OFN_ALLOWMULTISELECT | OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR;
+	DWORD dwFlag = OFN_ALLOWMULTISELECT | OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR | OFN_ENABLESIZING;
 	const char* c_szFilter = "Model Files (*.mde)|*.mde|All Files (*.*)|*.*|";
 
 	CFileDialog FileOpener (TRUE, "Load", "", dwFlag, c_szFilter, this);

@@ -7,6 +7,7 @@
 #include "AreaTerrain.h"
 #include "TerrainQuadtree.h"
 #include "ActorInstance.h"
+#include "../eterLib/EditorFrameLog.h"
 
 class PCBlocker_CDynamicSphereInstanceVector
 {
@@ -41,6 +42,7 @@ class PCBlocker_CDynamicSphereInstanceVector
 
 bool CMapOutdoor::Update(float fX, float fY, float fZ)
 {
+	EditorFrameMark("map.enter");
 	D3DXVECTOR3 v3Player(fX, fY, fZ);
 
 	m_v3Player=v3Player;
@@ -103,27 +105,34 @@ bool CMapOutdoor::Update(float fX, float fY, float fZ)
 		m_lOldReadX = -1;
 
 		Tracenf("Update::Load spent %d ms\n", ELTimer_GetMSec() - t1);
+		EditorFrameNotef("UpdateLoad %d,%d %u ms", (int) sCoordX, (int) sCoordY, ELTimer_GetMSec() - t1);
 	}
+	EditorFrameMark("map.load");
 #ifdef __PERFORMANCE_CHECKER__
 	DWORD t3=ELTimer_GetMSec();
 #endif
 	CSpeedTreeForest::Instance().UpdateSystem(CTimer::Instance().GetCurrentSecond());
+	EditorFrameMark("tree.wind");
 #ifdef __PERFORMANCE_CHECKER__
 	DWORD t4=ELTimer_GetMSec();
 #endif
 	__UpdateGarvage();
+	EditorFrameMark("garbage");
 #ifdef __PERFORMANCE_CHECKER__
 	DWORD t5=ELTimer_GetMSec();
 #endif
 	UpdateTerrain(fX, fY);
+	EditorFrameMark("terrain.move");
 #ifdef __PERFORMANCE_CHECKER__
 	DWORD t6=ELTimer_GetMSec();
 #endif
 	__UpdateArea(v3Player);
+	EditorFrameMark("area.update");
 #ifdef __PERFORMANCE_CHECKER__
 	DWORD t7=ELTimer_GetMSec();
 #endif
 	UpdateSky();
+	EditorFrameMark("sky.update");
 #ifdef __PERFORMANCE_CHECKER__
 	DWORD t8=ELTimer_GetMSec();
 #endif

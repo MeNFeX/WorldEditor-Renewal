@@ -132,7 +132,17 @@ bool CGrannyModel::LoadIndices()
 	if (m_idxCount <= 0)
 		return true;
 
-	if (!m_idxBuf.Create(m_idxCount, D3DFMT_INDEX16))
+	m_indexStride = 2;
+	for (int m = 0; m < m_pgrnModel->MeshBindingCount; ++m)
+	{
+		const granny_mesh * pMesh = m_meshs[m].GetGrannyMeshPointer();
+		if (!pMesh)
+			continue;
+		if (GrannyGetMeshBytesPerIndex(pMesh) >= 4 || GrannyGetMeshVertexCount(pMesh) > 65535)
+			m_indexStride = 4;
+	}
+
+	if (!m_idxBuf.Create(m_idxCount, m_indexStride == 4 ? D3DFMT_INDEX32 : D3DFMT_INDEX16))
 		return false;
 
 	void * indices;
@@ -143,7 +153,7 @@ bool CGrannyModel::LoadIndices()
 	for (int m = 0; m < m_pgrnModel->MeshBindingCount; ++m)
 	{
 		CGrannyMesh& rMesh = m_meshs[m];
-		rMesh.LoadIndices(indices);
+		rMesh.LoadIndices(indices, m_indexStride);
 	}
 
 	m_idxBuf.Unlock();
@@ -196,24 +206,39 @@ bool CGrannyModel::LoadMeshs()
 		}
 		m_bHaveBlendThing |= rMesh.HaveBlendThing();
 
-		const granny_int32x grni32xTypeCount = GrannyGetTotalTypeSize(pgrnMesh->PrimaryVertexData->VertexType) / 32;
-		int i = 0;
-		while (i < grni32xTypeCount)
+		const granny_data_type_definition* vertexType = pgrnMesh->PrimaryVertexData ? pgrnMesh->PrimaryVertexData->VertexType : nullptr;
+		if (vertexType)
 		{
-			if (nullptr == pgrnMesh->PrimaryVertexData->VertexType[i].Name || 0 == strlen(pgrnMesh->PrimaryVertexData->VertexType[i].Name))
+			const int typeStride = (int) sizeof (granny_data_type_definition);
+			int typeCount = 0;
+			if (typeStride > 0)
 			{
-				++i;
-				continue;
+				const int typeBytes = GrannyGetTotalTypeSize(vertexType);
+				if (typeBytes > 0)
+					typeCount = typeBytes / typeStride;
 			}
-			if ( 0 == strcmp(pgrnMesh->PrimaryVertexData->VertexType[i].Name, GrannyVertexPositionName) )
-				m_dwFvF |= D3DFVF_XYZ;
-			else if ( 0 == strcmp(pgrnMesh->PrimaryVertexData->VertexType[i].Name, GrannyVertexNormalName) )
-				m_dwFvF |= D3DFVF_NORMAL;
-			else if ( 0 == strcmp(pgrnMesh->PrimaryVertexData->VertexType[i].Name, GrannyVertexTextureCoordinatesName"0") )
-				m_dwFvF |= D3DFVF_TEX1;
-			else if ( 0 == strcmp(pgrnMesh->PrimaryVertexData->VertexType[i].Name, GrannyVertexTextureCoordinatesName"1") )
-				m_dwFvF |= D3DFVF_TEX2;
-			++i;
+			if (typeCount > 64)
+				typeCount = 64;
+
+			for (int i = 0; i < typeCount; ++i)
+			{
+				if (vertexType[i].Type == GrannyEndMember)
+					break;
+
+				const char* name = vertexType[i].Name;
+				const uintptr_t nameValue = reinterpret_cast<uintptr_t>(name);
+				if (nameValue < 0x10000 || nameValue == static_cast<uintptr_t>(-1))
+					continue;
+
+				if (0 == strcmp(name, GrannyVertexPositionName))
+					m_dwFvF |= D3DFVF_XYZ;
+				else if (0 == strcmp(name, GrannyVertexNormalName))
+					m_dwFvF |= D3DFVF_NORMAL;
+				else if (0 == strcmp(name, GrannyVertexTextureCoordinatesName "0"))
+					m_dwFvF |= D3DFVF_TEX1;
+				else if (0 == strcmp(name, GrannyVertexTextureCoordinatesName "1"))
+					m_dwFvF |= D3DFVF_TEX2;
+			}
 		}
 
 		vtxPos += GrannyGetMeshVertexCount(pgrnMesh);
@@ -242,6 +267,9 @@ bool CGrannyModel::LoadMeshs()
 		if (rMesh.GetTriGroupNodeList(CGrannyMaterial::TYPE_BLEND_PNT))
 			AppendMeshNode(eMeshType, CGrannyMaterial::TYPE_BLEND_PNT, n);
 	}
+
+	if (m_dwFvF == 0)
+		m_dwFvF = D3DFVF_XYZ | D3DFVF_NORMAL | D3DFVF_TEX1;
 
 	// For Dungeon Block
 	if ((D3DFVF_XYZ|D3DFVF_NORMAL|D3DFVF_TEX1|D3DFVF_TEX2) == m_dwFvF)
@@ -398,6 +426,7 @@ void CGrannyModel::Initialize()
 	m_deformVtxCount = 0;
 	m_vtxCount = 0;
 	m_idxCount = 0;
+	m_indexStride = 2;
 
 	m_canDeformPNVertices = false;
 

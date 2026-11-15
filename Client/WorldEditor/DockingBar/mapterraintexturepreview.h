@@ -17,9 +17,9 @@ class CMapTerrainTexturePreview : public CWnd, public CScreen
 		// Operations
 	public:
 		BOOL Create();
+		void ClearPreview();
 
 	protected:
-		ILuint m_ilImage;
 		CGraphicDib m_DIB;
 
 		// Overrides

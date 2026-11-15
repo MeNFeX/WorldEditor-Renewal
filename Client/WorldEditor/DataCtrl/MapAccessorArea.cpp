@@ -12,6 +12,12 @@ std::vector<CAreaAccessor::TCollisionDataCounter> CAreaAccessor::ms_CollisionDat
 // CAreaAccessor
 //////////////////////////////////////////////////////////////////////////
 
+static void MarkOwnerEdited(CAreaAccessor* pArea)
+{
+	if (pArea && pArea->GetOwner())
+		static_cast<CMapOutdoorAccessor*>(pArea->GetOwner())->MarkEdited();
+}
+
 int CAreaAccessor::GetPickedObjectIndex()
 {
 	for (DWORD i = 0; i < m_ObjectInstanceVector.size(); ++i)
@@ -294,6 +300,7 @@ BOOL CAreaAccessor::SelectObject (float fxStart, float fyStart, float fxEnd, flo
 
 void CAreaAccessor::DeleteSelectedObject()
 {
+	MarkOwnerEdited (this);
 	TSelectObjectList::reverse_iterator ritor;
 	for (ritor = m_SelectObjectList.rbegin(); ritor != m_SelectObjectList.rend(); ++ritor)
 	{
@@ -383,16 +390,19 @@ void CAreaAccessor::DeleteSelectedObject()
 
 void CAreaAccessor::MoveSelectedObject (float fx, float fy)
 {
+	MarkOwnerEdited (this);
 	__RefreshObjectPosition (fx, fy, 0.0f);
 }
 
 void CAreaAccessor::MoveSelectedObjectHeight (float fHeight)
 {
+	MarkOwnerEdited (this);
 	__RefreshObjectPosition (0.0f, 0.0f, fHeight);
 }
 
 void CAreaAccessor::AddSelectedAmbienceScale (int iAddScale)
 {
+	MarkOwnerEdited (this);
 	TSelectObjectList::reverse_iterator ritor;
 	for (ritor = m_SelectObjectList.rbegin(); ritor != m_SelectObjectList.rend(); ++ritor)
 	{
@@ -428,6 +438,7 @@ void CAreaAccessor::AddSelectedAmbienceScale (int iAddScale)
 
 void CAreaAccessor::AddSelectedAmbienceMaxVolumeAreaPercentage (float fPercentage)
 {
+	MarkOwnerEdited (this);
 	TSelectObjectList::reverse_iterator ritor;
 	for (ritor = m_SelectObjectList.rbegin(); ritor != m_SelectObjectList.rend(); ++ritor)
 	{
@@ -465,6 +476,7 @@ void CAreaAccessor::AddSelectedAmbienceMaxVolumeAreaPercentage (float fPercentag
 
 void CAreaAccessor::AddSelectedObjectRotation (float fYaw, float fPitch, float fRoll)
 {
+	MarkOwnerEdited (this);
 	TSelectObjectList::iterator itor;
 	for (itor = m_SelectObjectList.begin(); itor != m_SelectObjectList.end(); ++itor)
 	{
@@ -573,6 +585,7 @@ void CAreaAccessor::ApplyObjectInstance (DWORD dwIndex)
 
 void CAreaAccessor::ResetSelectedObjectHeightToTerrain()
 {
+	MarkOwnerEdited (this);
 	for (TSelectObjectList::iterator itor = m_SelectObjectList.begin(); itor != m_SelectObjectList.end(); ++itor)
 	{
 		TObjectData * pObjectData;
@@ -585,6 +598,7 @@ void CAreaAccessor::ResetSelectedObjectHeightToTerrain()
 
 void CAreaAccessor::ResetSelectedObjectRotation()
 {
+	MarkOwnerEdited (this);
 	for (TSelectObjectList::iterator itor = m_SelectObjectList.begin(); itor != m_SelectObjectList.end(); ++itor)
 	{
 		TObjectData * pObjectData;
@@ -612,6 +626,7 @@ void CAreaAccessor::AccumulateSelectionPivot (double & rX, double & rY, int & rC
 
 void CAreaAccessor::RotateSelectedObjectAroundPivot (float fPivotX, float fPivotY, float fYaw)
 {
+	MarkOwnerEdited (this);
 	const float fRad = D3DXToRadian (fYaw);
 	const float fCos = cosf (fRad);
 	const float fSin = sinf (fRad);
@@ -668,6 +683,7 @@ void CAreaAccessor::AddCopiedObject (const TObjectData & c_rObjectData)
 
 void CAreaAccessor::SetSelectedObjectPortalNumber (int iID)
 {
+	MarkOwnerEdited (this);
 	TSelectObjectList::reverse_iterator ritor;
 	for (ritor = m_SelectObjectList.rbegin(); ritor != m_SelectObjectList.rend(); ++ritor)
 	{
@@ -719,6 +735,7 @@ void CAreaAccessor::SetSelectedObjectPortalNumber (int iID)
 
 void CAreaAccessor::DelSelectedObjectPortalNumber (int iID)
 {
+	MarkOwnerEdited (this);
 	TSelectObjectList::reverse_iterator ritor;
 	for (ritor = m_SelectObjectList.rbegin(); ritor != m_SelectObjectList.rend(); ++ritor)
 	{
@@ -773,6 +790,7 @@ void CAreaAccessor::CollectPortalNumber (std::set<int>* pkSet_iPortalNumber)
 
 void CAreaAccessor::AddObject (const TObjectData * c_pObjectData)
 {
+	MarkOwnerEdited (this);
 	TObjectInstance * pObjectInstance = ms_ObjectInstancePool.Alloc();
 	pObjectInstance->Clear();
 	CArea::__SetObjectInstance (pObjectInstance, c_pObjectData);
@@ -1026,7 +1044,7 @@ bool CAreaAccessor::SaveCollisionData (const char* c_szLoadingAreaFileName, FILE
 		ObjectData.Position.x = atof (c_rstrxPosition.c_str());
 		ObjectData.Position.y = atof (c_rstryPosition.c_str());
 		ObjectData.Position.z = atof (c_rstrzPosition.c_str());
-		ObjectData.dwCRC = atoi (c_rstrCRC.c_str());
+		ObjectData.dwCRC = strtoul (c_rstrCRC.c_str(), nullptr, 10);
 
 		ObjectData.m_fYaw = ObjectData.m_fPitch = ObjectData.m_fRoll = 0;
 
@@ -1250,6 +1268,7 @@ void CAreaAccessor::RefreshArea()
 
 void CAreaAccessor::UpdateObject (DWORD dwIndex, const TObjectData * c_pObjectData)
 {
+	MarkOwnerEdited (this);
 	TObjectInstance * pObjectInstance;
 	if (!GetInstancePointer (dwIndex, &pObjectInstance))
 	{

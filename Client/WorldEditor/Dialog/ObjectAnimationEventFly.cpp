@@ -44,7 +44,7 @@ END_MESSAGE_MAP()
 
 void CObjectAnimationEventFly::OnObjectAnimationEventFlyLoad()
 {
-	DWORD dwFlag = OFN_HIDEREADONLY;
+	DWORD dwFlag = OFN_HIDEREADONLY | OFN_NOCHANGEDIR | OFN_ENABLESIZING;
 	const char* c_szFilter = "Metin2 Fly Script Files (*.msf)|*.msf|*.*|All Files (*.*)|";
 	CFileDialog FileOpener (TRUE, "Load", "", dwFlag, c_szFilter, this);
 

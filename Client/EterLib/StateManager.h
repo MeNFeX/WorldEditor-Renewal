@@ -337,6 +337,13 @@ class CStateManager : public CSingleton<CStateManager>
 		HRESULT DrawIndexedPrimitive(D3DPRIMITIVETYPE PrimitiveType, UINT minIndex, UINT NumVertices, UINT startIndex, UINT primCount, INT baseVertexIndex) const;
 		HRESULT DrawIndexedPrimitiveUP(D3DPRIMITIVETYPE PrimitiveType, UINT MinVertexIndex, UINT NumVertexIndices, UINT PrimitiveCount, CONST void * pIndexData, D3DFORMAT IndexDataFormat, CONST void * pVertexStreamZeroData, UINT VertexStreamZeroStride);
 
+#ifdef WORLD_EDITOR
+		static void SetEditorStatsEnabled(bool bEnabled);
+		static bool EditorStatsEnabled();
+		static void ResetEditorStats();
+		static void GetEditorStats(DWORD & dwDraws, DWORD & dwTris, DWORD & dwVerts);
+#endif
+
 		// Codes For Debug
 		DWORD GetRenderState(D3DRENDERSTATETYPE Type) const;
 

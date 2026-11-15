@@ -84,7 +84,7 @@ BOOL GTColorSelectorWnd::Create (DWORD dwStyle, CRect rcPos, CWnd* pParent, UINT
 				   rcPos.Width(),
 				   rcPos.Height(),
 				   pParent->GetSafeHwnd(),
-				   (HMENU) nID,
+				   reinterpret_cast<HMENU>(static_cast<UINT_PTR>(nID)),
 				   lp))
 
 	{
@@ -526,7 +526,7 @@ void GTColorSelectorWnd::OnSize (UINT nType, int cx, int cy)
 	m_bNeedPaint = true;
 }
 
-LONG GTColorSelectorWnd::OnSelectBulletOK (UINT wParam, LONG lParam)
+LRESULT GTColorSelectorWnd::OnSelectBulletOK (WPARAM wParam, LPARAM lParam)
 {
 	wParam;
 	lParam;

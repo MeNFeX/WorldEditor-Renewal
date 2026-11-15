@@ -21,12 +21,19 @@
 #pragma comment(lib, "dbghelp.lib")
 #pragma comment(linker, "/NODEFAULTLIB:libci.lib")
 
+#if defined(_WIN64)
 #pragma comment( lib, "python27.lib" )
-#pragma comment( lib, "granny2.11.8.0.lib" )
-#pragma comment( lib, "mss32.lib" )
-
-#pragma comment( lib, "DevIL.lib" )
-#pragma comment( lib, "ILU.lib" )
+#pragma comment( lib, "granny2_static.lib" )
+#pragma comment( lib, "speedtree_static.lib" )
+#else
+#pragma comment( lib, "python27_static.lib" )
+#pragma comment( lib, "granny2_static.lib" )
+#if defined(_DEBUG)
+#pragma comment( lib, "speedtree_staticd.lib" )
+#else
+#pragma comment( lib, "speedtree_static.lib" )
+#endif
+#endif
 
 #pragma comment( lib, "oldnames.lib" )
 #pragma comment( lib, "dinput8.lib" )
@@ -35,12 +42,16 @@
 #pragma comment(lib, "d3d9.lib")
 #pragma comment(lib, "d3dx9.lib")
 
+extern "C"
+{
+	__declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
+	__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
+}
+
 #pragma comment( lib, "version.lib" )
 #pragma comment( lib, "imagehlp.lib" )
 #pragma comment( lib, "winmm.lib" )
 #pragma comment( lib, "imm32.lib" )
-
-#pragma comment( lib, "SpeedTreeRT.lib" )
 
 //#pragma comment( lib, "ws2_32.lib" )
 //#pragma comment( lib, "wsock32.lib" )
@@ -516,7 +527,12 @@ BOOL CWorldEditorApp::OnIdle (LONG lCount)
 	CMainFrame * pFrame = (CMainFrame*)AfxGetMainWnd();
 	CWorldEditorView * pView = (CWorldEditorView*)pFrame->GetActiveView();
 
-	pView->Process();
+	if (pFrame && pView && ::GetForegroundWindow() == pFrame->GetSafeHwnd())
+	{
+		pView->Process();
+		CWinApp::OnIdle(lCount);
+		return TRUE;
+	}
 
-	return CWinApp::OnIdle (lCount);
+	return CWinApp::OnIdle(lCount);
 }

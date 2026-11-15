@@ -113,12 +113,21 @@
     #define GRANNY_64BIT_TYPE __INT64_TYPE__
 #elif defined(_WIN32)
   #if defined(_WIN64)
-    // Yes, X64 defines both _WIN#2 and _WIN64
+    // Yes, X64 defines both _WIN32 and _WIN64.
+    // GRANNY_STATIC links granny2_static.lib. The Win32 build keeps the DLL import.
+    #if defined(GRANNY_STATIC)
+    #define GRANNY_DYNIMP(ret) ret __stdcall
+    #define GRANNY_DYNEXP(ret) ret __stdcall
+    #define GRANNY_CALLBACK(ret) ret __cdecl
+    #define GRANNY_DYNIMPDATA(type) type
+    #define GRANNY_DYNEXPDATA(type) type
+    #else
     #define GRANNY_DYNIMP(ret) __declspec(dllimport) ret __stdcall
     #define GRANNY_DYNEXP(ret) __declspec(dllexport) ret __stdcall
     #define GRANNY_CALLBACK(ret) ret __cdecl
     #define GRANNY_DYNIMPDATA(type) __declspec(dllimport) type
     #define GRANNY_DYNEXPDATA(type) __declspec(dllexport) type
+    #endif
     #undef  GRANNY_64BIT_PTR
     #define GRANNY_64BIT_PTR 1
     #undef  GRANNY_LITTLE_ENDIAN
@@ -135,11 +144,19 @@
     #undef  GRANNY_LITTLE_ENDIAN
     #define GRANNY_LITTLE_ENDIAN 1
   #else
+    #if defined(GRANNY_STATIC)
+    #define GRANNY_DYNIMP(ret) ret __cdecl
+    #define GRANNY_DYNEXP(ret) ret __cdecl
+    #define GRANNY_CALLBACK(ret) ret __cdecl
+    #define GRANNY_DYNIMPDATA(type) type
+    #define GRANNY_DYNEXPDATA(type) type
+    #else
     #define GRANNY_DYNIMP(ret) __declspec(dllimport) ret __stdcall
     #define GRANNY_DYNEXP(ret) __declspec(dllexport) ret __stdcall
     #define GRANNY_CALLBACK(ret) ret __cdecl
     #define GRANNY_DYNIMPDATA(type) __declspec(dllimport) type
     #define GRANNY_DYNEXPDATA(type) __declspec(dllexport) type
+    #endif
     #undef  GRANNY_32BIT_PTR
     #define GRANNY_32BIT_PTR 1
     #undef  GRANNY_LITTLE_ENDIAN

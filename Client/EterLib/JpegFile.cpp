@@ -4,6 +4,9 @@
 #include <stdlib.h>
 #include <memory.h>
 
+#if defined(_WIN64)
+#include "JpegFileX64.inc"
+#else
 #include <libjpeg/jpeglib.h>
 #include <libjpeg/jpegLibLink.h>
 
@@ -368,4 +371,5 @@ int jpeg_load(const char*filename, unsigned char**dest, int*_width, int*_height)
     fclose(fi);
     return 1;
 }
+#endif
 

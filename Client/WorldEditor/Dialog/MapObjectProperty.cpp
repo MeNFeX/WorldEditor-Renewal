@@ -210,7 +210,7 @@ void CMapObjectProperty::OnCancel()
 	EndDialog (FALSE);
 }
 
-void CMapObjectProperty::OnTimer (UINT nIDEvent)
+void CMapObjectProperty::OnTimer (UINT_PTR nIDEvent)
 {
 	if (IsWindowVisible())
 	{

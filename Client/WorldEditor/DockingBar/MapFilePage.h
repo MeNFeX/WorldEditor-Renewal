@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <shellapi.h>
+
 // MapFilePage.h : header file
 //
 
@@ -21,6 +23,8 @@ class CMapFilePage : public CPageCtrl
 		void Initialize();
 		void UpdateUI();
 		void RunLoadMapEvent();
+		void InstallFolderDrop (HWND hRoot);
+		void HandleFolderDrop (HDROP hDrop);
 
 		// Dialog Data
 		//{{AFX_DATA(CMapFilePage)
@@ -42,6 +46,8 @@ class CMapFilePage : public CPageCtrl
 
 		// Implementation
 	protected:
+
+		bool LoadMapByFolderName (const char* pszName);
 
 		long m_lViewRadius;
 		float m_fHeightScale;
@@ -70,8 +76,14 @@ class CMapFilePage : public CPageCtrl
 		afx_msg void OnButtonInitBasetexturemap();
 		afx_msg void OnCheckPatchGrid();
 		afx_msg void OnCheckWater();
+		afx_msg void OnCheckTree();
+		afx_msg void OnCheckEffect();
+		afx_msg void OnCheckAmbience();
 		afx_msg void OnCheckCompass();
 		afx_msg void OnButtonSaveAtlas();
+		afx_msg void OnCloseMap();
+		afx_msg void OnCheckAutoBackup();
+		afx_msg void OnCheckDataEncryption();
 		afx_msg void OnButtonChangeBasexy();
 		afx_msg void OnButtonSelecteEnvironmentSet();
 		afx_msg void OnCheckTerrainOption();

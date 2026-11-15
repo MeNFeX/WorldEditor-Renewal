@@ -42,6 +42,7 @@
 #include "../eterLib/ResourceManager.h"
 #include "../eterLib/Camera.h"
 #include "../eterLib/StateManager.h"
+#include "../eterLib/EditorFrameLog.h"
 
 #include "SpeedTreeConfig.h"
 #include "CSpeedTreeDirectX.h"
@@ -81,6 +82,10 @@ m_pTextureInfo(nullptr)
 {
 	// set initial position
 	m_afPos[0] = m_afPos[1] = m_afPos[2] = 0.0f;
+#ifdef WORLD_EDITOR
+	m_bEditorInCamera = true;
+	m_abEditorGeometryReady[0] = m_abEditorGeometryReady[1] = m_abEditorGeometryReady[2] = m_abEditorGeometryReady[3] = false;
+#endif
 
 	m_unNumWrappersActive++;
 }
@@ -355,6 +360,13 @@ bool CSpeedTreeWrapper::LoadTree(const char * pszSptFile, const BYTE * c_pbBlock
 			LoadTexture((CFileNameHelper::GetPath(vs1) + CFileNameHelper::NoExtension(vss) + ".dds").c_str(), m_CompositeImageInstance);
 		}
 
+#ifdef WORLD_EDITOR
+		// Editor cameras sit far above the map. The tree files fade leaves
+		// out a few hundred units away and replace them with a vertical billboard.
+		m_pSpeedTree->SetLodLimits(100000000.0f, 1000000000.0f);
+		m_pSpeedTree->SetLodLevel(1.0f);
+#endif
+
 		// setup the index and vertex buffers
 		SetupBuffers();
 
@@ -413,7 +425,13 @@ void CSpeedTreeWrapper::SetupBranchBuffers(void)
 
         unsigned int unNumLodLevels = m_pSpeedTree->GetNumBranchLodLevels();
         m_pBranchIndexCounts = new unsigned short[unNumLodLevels];
-        for (unsigned int i = 0; i < unNumLodLevels; ++i)
+        memset(m_pBranchIndexCounts, 0, sizeof(unsigned short) * unNumLodLevels);
+#ifdef WORLD_EDITOR
+        const unsigned int unBuildLods = unNumLodLevels > 0 ? 1u : 0u;
+#else
+        const unsigned int unBuildLods = unNumLodLevels;
+#endif
+        for (unsigned int i = 0; i < unBuildLods; ++i)
         {
             m_pSpeedTree->GetGeometry(*m_pGeometryCache, SpeedTree_BranchGeometry, (short)i);
             if (pBranches->m_usNumStrips > 0)
@@ -459,8 +477,15 @@ void CSpeedTreeWrapper::SetupFrondBuffers(void)
         m_unNumFrondLods = m_pSpeedTree->GetNumFrondLodLevels();
         m_pFrondIndexCounts = new unsigned short[m_unNumFrondLods];
         m_pFrondIndexBuffers = new LPDIRECT3DINDEXBUFFER9[m_unNumFrondLods];
+        memset(m_pFrondIndexCounts, 0, sizeof(unsigned short) * m_unNumFrondLods);
+        memset(m_pFrondIndexBuffers, 0, sizeof(LPDIRECT3DINDEXBUFFER9) * m_unNumFrondLods);
+#ifdef WORLD_EDITOR
+        const unsigned short unBuildFrondLods = m_unNumFrondLods > 0 ? 1 : 0;
+#else
+        const unsigned short unBuildFrondLods = (unsigned short) m_unNumFrondLods;
+#endif
 
-        for (unsigned short i = 0; i < m_unNumFrondLods; ++i)
+        for (unsigned short i = 0; i < unBuildFrondLods; ++i)
         {
             m_pSpeedTree->GetGeometry(*m_pGeometryCache, SpeedTree_FrondGeometry, -1, i);
             if (pFronds->m_usNumStrips > 0)
@@ -505,10 +530,15 @@ void CSpeedTreeWrapper::SetupLeafBuffers(void)
 	// cycle through LODs
 	for (UINT unLod = 0; unLod < m_usNumLeafLods; ++unLod)
 	{
+		m_pLeavesUpdatedByCpu[unLod] = false;
+#ifdef WORLD_EDITOR
+		// The editor draws the near leaves only.
+		if (unLod != 0)
+			continue;
+#endif
 
 		// if this LOD has no leaves, skip it
 		m_pSpeedTree->GetGeometry(*m_pGeometryCache, SpeedTree_LeafGeometry, -1, -1, unLod);
-		m_pLeavesUpdatedByCpu[unLod] = false;
 		unsigned short usLeafCount = m_pGeometryCache->m_sLeaves0.m_usLeafCount;
 
 		if (usLeafCount < 1)
@@ -516,12 +546,18 @@ void CSpeedTreeWrapper::SetupLeafBuffers(void)
 
 		m_pusLeafVertexCount[unLod] = usLeafCount;
 		SFVFLeafVertex* pVertexBuffer = nullptr;
-		if (FAILED (ms_lpd3dDevice->CreateVertexBuffer(usLeafCount * 6 * sizeof(SFVFLeafVertex), D3DUSAGE_DYNAMIC, D3DFVF_SPEEDTREE_LEAF_VERTEX, D3DPOOL_SYSTEMMEM, &m_pLeafVertexBuffer[unLod], nullptr)) || !m_pLeafVertexBuffer[unLod])
+		if (FAILED (ms_lpd3dDevice->CreateVertexBuffer(usLeafCount * 6 * sizeof(SFVFLeafVertex), D3DUSAGE_DYNAMIC | D3DUSAGE_WRITEONLY, D3DFVF_SPEEDTREE_LEAF_VERTEX, D3DPOOL_DEFAULT, &m_pLeafVertexBuffer[unLod], nullptr)) || !m_pLeafVertexBuffer[unLod])
 		{
 			m_pusLeafVertexCount[unLod] = 0;
 			continue;
 		}
-		m_pLeafVertexBuffer[unLod]->Lock(0, 0, reinterpret_cast<void**>(&pVertexBuffer), D3DLOCK_DISCARD | D3DLOCK_NOSYSLOCK);
+		if (FAILED (m_pLeafVertexBuffer[unLod]->Lock(0, 0, reinterpret_cast<void**>(&pVertexBuffer), D3DLOCK_DISCARD)) || !pVertexBuffer)
+		{
+			m_pLeafVertexBuffer[unLod]->Release();
+			m_pLeafVertexBuffer[unLod] = nullptr;
+			m_pusLeafVertexCount[unLod] = 0;
+			continue;
+		}
 		SFVFLeafVertex* pVertex = pVertexBuffer;
 		for (UINT unLeaf = 0; unLeaf < usLeafCount; ++unLeaf)
 		{
@@ -547,6 +583,11 @@ void CSpeedTreeWrapper::SetupLeafBuffers(void)
 
 void CSpeedTreeWrapper::Advance(void) const
 {
+#ifdef WORLD_EDITOR
+	// The editor camera sits far above the map. Default LOD drops the leaves
+	// and brings them back as the view moves. Keep the full tree.
+	m_pSpeedTree->SetLodLevel(1.0f);
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -660,12 +701,40 @@ void CSpeedTreeWrapper::SetupBranchForTreeType(void) const
 	}
 }
 
+#ifdef WORLD_EDITOR
+void CSpeedTreeWrapper::BeginEditorGeometry(int nPass) const
+{
+	if (nPass >= 0 && nPass < 4)
+		m_abEditorGeometryReady[nPass] = false;
+}
+
+bool CSpeedTreeWrapper::ConsumeEditorGeometry(int nPass) const
+{
+	CSpeedTreeWrapper * pOwner = m_pInstanceOf ? m_pInstanceOf : const_cast<CSpeedTreeWrapper *>(this);
+	if (nPass < 0 || nPass >= 4)
+		return true;
+	if (pOwner->m_abEditorGeometryReady[nPass])
+		return false;
+	pOwner->m_abEditorGeometryReady[nPass] = true;
+	return true;
+}
+#endif
+
 ///////////////////////////////////////////////////////////////////////
 //	CSpeedTreeWrapper::RenderBranches
 
 void CSpeedTreeWrapper::RenderBranches(void) const
 {
+#ifdef WORLD_EDITOR
+	if (ConsumeEditorGeometry(0))
+	{
+		m_pSpeedTree->SetLodLevel(1.0f);
+		m_pSpeedTree->GetGeometry(*m_pGeometryCache, SpeedTree_BranchGeometry);
+		EditorFrameCount(EDITOR_COUNT_GEO);
+	}
+#else
 	m_pSpeedTree->GetGeometry(*m_pGeometryCache, SpeedTree_BranchGeometry);
+#endif
 
 	if (m_pGeometryCache->m_fBranchAlphaTestValue > 0.0f)
 	{
@@ -710,7 +779,16 @@ void CSpeedTreeWrapper::SetupFrondForTreeType(void) const
 
 void CSpeedTreeWrapper::RenderFronds(void) const
 {
+#ifdef WORLD_EDITOR
+	if (ConsumeEditorGeometry(1))
+	{
+		m_pSpeedTree->SetLodLevel(1.0f);
+		m_pSpeedTree->GetGeometry(*m_pGeometryCache, SpeedTree_FrondGeometry);
+		EditorFrameCount(EDITOR_COUNT_GEO);
+	}
+#else
 	m_pSpeedTree->GetGeometry(*m_pGeometryCache, SpeedTree_FrondGeometry);
+#endif
 
 	if (m_pGeometryCache->m_fFrondAlphaTestValue > 0.0f)
 	{
@@ -759,40 +837,79 @@ void CSpeedTreeWrapper::UploadLeafTables(UINT uiLocation) const
 ///////////////////////////////////////////////////////////////////////
 //	CSpeedTreeWrapper::RenderLeaves
 
+void CSpeedTreeWrapper::ResetCpuLeafUpdates(void) const
+{
+	if (!m_pLeavesUpdatedByCpu)
+		return;
+
+	for (unsigned short i = 0; i < m_usNumLeafLods; ++i)
+		m_pLeavesUpdatedByCpu[i] = false;
+}
+
 void CSpeedTreeWrapper::RenderLeaves(void) const
 {
-	// update leaf geometry
+#ifdef WORLD_EDITOR
+	if (ConsumeEditorGeometry(2))
+	{
+		m_pSpeedTree->SetLodLevel(1.0f);
+		m_pSpeedTree->GetGeometry(*m_pGeometryCache, SpeedTree_LeafGeometry);
+		EditorFrameCount(EDITOR_COUNT_GEO);
+	}
+#else
 	m_pSpeedTree->GetGeometry(*m_pGeometryCache, SpeedTree_LeafGeometry);
+#endif
+	// update leaf geometry
+	const short anVertexIndices[6] = { 0, 1, 2, 0, 2, 3 };
 	for (UINT i = 0; i < 2; ++i)
 	{
 		// reference to leaf structure
 		const CSpeedTreeRT::SGeometry::SLeaf* pLeaf = (i == 0) ? &m_pGeometryCache->m_sLeaves0 : &m_pGeometryCache->m_sLeaves1;
 		int unLod = pLeaf->m_nDiscreteLodLevel;
 
-		if (pLeaf->m_bIsActive && pLeaf->m_usLeafCount > 0 && unLod >= 0 && unLod < m_usNumLeafLods && m_pLeafVertexBuffer && m_pLeafVertexBuffer[unLod] && m_pusLeafVertexCount && m_pusLeafVertexCount[unLod] > 0)
+		if (pLeaf->m_bIsActive && pLeaf->m_usLeafCount > 0 && unLod >= 0 && unLod < m_usNumLeafLods && m_pLeafVertexBuffer && m_pLeafVertexBuffer[unLod] && m_pusLeafVertexCount && m_pusLeafVertexCount[unLod] > 0 && pLeaf->m_pCenterCoords && pLeaf->m_pLeafMapCoords)
 		{
 			const UINT unWriteCount = min ((UINT) pLeaf->m_usLeafCount, (UINT) m_pusLeafVertexCount[unLod]);
-			// update the centers
-			SFVFLeafVertex* pVertex = nullptr;
-			m_pLeafVertexBuffer[unLod]->Lock(0, 0, reinterpret_cast<void**>(&pVertex), D3DLOCK_DISCARD | D3DLOCK_NOSYSLOCK);
-			if (!pVertex)
-				continue;
-			for (UINT unLeaf = 0; unLeaf < unWriteCount; ++unLeaf)
+			// One upload per tree file. Instances share this buffer and are
+			// placed with the world matrix, so locking it again stalls the GPU.
+			if (!m_pLeavesUpdatedByCpu || !m_pLeavesUpdatedByCpu[unLod])
 			{
-				D3DXVECTOR3 vecCenter(&(pLeaf->m_pCenterCoords[unLeaf * 3]));
-				D3DXVECTOR3 vec0(&pLeaf->m_pLeafMapCoords[unLeaf][0]);
-				D3DXVECTOR3 vec1(&pLeaf->m_pLeafMapCoords[unLeaf][4]);
-				D3DXVECTOR3 vec2(&pLeaf->m_pLeafMapCoords[unLeaf][8]);
-				D3DXVECTOR3 vec3(&pLeaf->m_pLeafMapCoords[unLeaf][12]);
-
-				(pVertex++)->m_vPosition = vecCenter + vec0;
-				(pVertex++)->m_vPosition = vecCenter + vec1;
-				(pVertex++)->m_vPosition = vecCenter + vec2;
-				(pVertex++)->m_vPosition = vecCenter + vec0;
-				(pVertex++)->m_vPosition = vecCenter + vec2;
-				(pVertex++)->m_vPosition = vecCenter + vec3;
+				EditorFrameCount(EDITOR_COUNT_LEAF_LOCK);
+				SFVFLeafVertex* pVertex = nullptr;
+				m_pLeafVertexBuffer[unLod]->Lock(0, 0, reinterpret_cast<void**>(&pVertex), D3DLOCK_DISCARD | D3DLOCK_NOSYSLOCK);
+				if (!pVertex)
+					continue;
+				for (UINT unLeaf = 0; unLeaf < unWriteCount; ++unLeaf)
+				{
+					const D3DXVECTOR3 vecCenter(&(pLeaf->m_pCenterCoords[unLeaf * 3]));
+					const D3DXVECTOR3 vec0(&pLeaf->m_pLeafMapCoords[unLeaf][0]);
+					const D3DXVECTOR3 vec1(&pLeaf->m_pLeafMapCoords[unLeaf][4]);
+					const D3DXVECTOR3 vec2(&pLeaf->m_pLeafMapCoords[unLeaf][8]);
+					const D3DXVECTOR3 vec3(&pLeaf->m_pLeafMapCoords[unLeaf][12]);
+					const D3DXVECTOR3 aCorner[6] =
+					{
+						vecCenter + vec0, vecCenter + vec1, vecCenter + vec2,
+						vecCenter + vec0, vecCenter + vec2, vecCenter + vec3
+					};
+					const DWORD dwColor = pLeaf->m_pColors ? AGBR2ARGB(pLeaf->m_pColors[unLeaf]) : 0xFFFFFFFF;
+					const float * pTex = (pLeaf->m_pLeafMapTexCoords && pLeaf->m_pLeafMapTexCoords[unLeaf]) ? pLeaf->m_pLeafMapTexCoords[unLeaf] : nullptr;
+					for (UINT unVert = 0; unVert < 6; ++unVert)
+					{
+						pVertex->m_vPosition = aCorner[unVert];
+						pVertex->m_dwDiffuseColor = dwColor;
+						if (pTex)
+							memcpy(pVertex->m_fTexCoords, pTex + anVertexIndices[unVert] * 2, sizeof(float) * 2);
+						else
+						{
+							pVertex->m_fTexCoords[0] = 0.0f;
+							pVertex->m_fTexCoords[1] = 0.0f;
+						}
+						++pVertex;
+					}
+				}
+				m_pLeafVertexBuffer[unLod]->Unlock();
+				if (m_pLeavesUpdatedByCpu)
+					m_pLeavesUpdatedByCpu[unLod] = true;
 			}
-			m_pLeafVertexBuffer[unLod]->Unlock();
 		}
 	}
 
@@ -836,14 +953,20 @@ void CSpeedTreeWrapper::RenderBillboards(void) const
 
 	PositionTree();
 
+#ifdef WORLD_EDITOR
+	const bool bQueryBillboard = ConsumeEditorGeometry(3);
+#else
+	const bool bQueryBillboard = true;
+#endif
+	if (bQueryBillboard)
+		m_pSpeedTree->GetGeometry(*m_pGeometryCache, SpeedTree_BillboardGeometry);
+
 	struct SBillboardVertex
 	{
 		float fX, fY, fZ;
 		DWORD dColor;
 		float fU, fV;
 	};
-
-	m_pSpeedTree->GetGeometry(*m_pGeometryCache, SpeedTree_BillboardGeometry);
 
 	if (m_pGeometryCache->m_sBillboard0.m_bIsActive)
 	{
@@ -879,6 +1002,26 @@ void CSpeedTreeWrapper::RenderBillboards(void) const
 		ms_faceCount += 2;
 		STATEMANAGER.DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, sVertex, sizeof(SBillboardVertex));
 	}
+
+#ifdef WORLD_EDITOR
+	// Aerial editor camera. The vertical billboard is edge-on from above.
+	// Map trees carry a horizontal canopy card for that view.
+	if (m_pGeometryCache->m_sHorizontalBillboard.m_bIsActive && m_pGeometryCache->m_sHorizontalBillboard.m_pCoords && m_pGeometryCache->m_sHorizontalBillboard.m_pTexCoords)
+	{
+		const float* pCoords = m_pGeometryCache->m_sHorizontalBillboard.m_pCoords;
+		const float* pTexCoords = m_pGeometryCache->m_sHorizontalBillboard.m_pTexCoords;
+		SBillboardVertex sVertex[4] =
+		{
+			{ pCoords[0], pCoords[1], pCoords[2], 0xffffffff, pTexCoords[0], pTexCoords[1] },
+			{ pCoords[3], pCoords[4], pCoords[5], 0xffffffff, pTexCoords[2], pTexCoords[3] },
+			{ pCoords[6], pCoords[7], pCoords[8], 0xffffffff, pTexCoords[4], pTexCoords[5] },
+			{ pCoords[9], pCoords[10], pCoords[11], 0xffffffff, pTexCoords[6], pTexCoords[7] },
+		};
+		STATEMANAGER.SetRenderState(D3DRS_ALPHAREF, DWORD(m_pGeometryCache->m_sHorizontalBillboard.m_fAlphaTestValue));
+		ms_faceCount += 2;
+		STATEMANAGER.DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, sVertex, sizeof(SBillboardVertex));
+	}
+#endif
 #endif
 }
 

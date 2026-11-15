@@ -128,7 +128,7 @@ bool CShadowRenderHelper::StartRenderingPhase (BYTE byPhase)
 			D3DXVECTOR3 pUp (0.0f, 0.0f, 1.0f);
 			D3DXMatrixLookAtRH (&m_matLightView, &v3Eye, &v3Target, &pUp);
 
-			D3DXMatrixOrthoRH (&m_matLightProj, 38400.0f, 38400.0f, 100.0f, 75000.0f);
+			D3DXMatrixOrthoRH (&m_matLightProj, 76800.0f, 76800.0f, 10.0f, 120000.0f);
 
 			STATEMANAGER.SaveTransform (D3DTS_VIEW, &m_matLightView);
 			STATEMANAGER.SaveTransform (D3DTS_PROJECTION, &m_matLightProj);

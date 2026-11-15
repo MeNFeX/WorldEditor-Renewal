@@ -77,7 +77,7 @@ void CObjectAnimationEventSound::SetData (const CRaceMotionDataAccessor::TMotion
 
 void CObjectAnimationEventSound::OnLoadSound()
 {
-	DWORD dwFlag = OFN_ALLOWMULTISELECT | OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR;
+	DWORD dwFlag = OFN_ALLOWMULTISELECT | OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR | OFN_ENABLESIZING;
 	const char* c_szFilter = "Sound Files (*.wav)|*.wav|All Files (*.*)|*.*|";
 
 	CFileDialog FileOpener (TRUE, "Load", "", dwFlag, c_szFilter, this);

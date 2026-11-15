@@ -184,6 +184,15 @@ BOOL D3D_CDeviceInfo::FindDepthStencilFormat(IDirect3D9Ex& rkD3D, UINT iD3DAdapt
 	const UINT m_dwMinDepthBits    = 16;
 	const UINT m_dwMinStencilBits  = 0;
 
+	if (SUCCEEDED(rkD3D.CheckDeviceFormat(iD3DAdapterInfo, DeviceType,
+		TargetFormat, D3DUSAGE_DEPTHSTENCIL, D3DRTYPE_SURFACE, D3DFMT_D24S8)) &&
+		SUCCEEDED(rkD3D.CheckDepthStencilMatch(iD3DAdapterInfo, DeviceType,
+			TargetFormat, TargetFormat, D3DFMT_D24S8)))
+	{
+		*pDepthStencilFormat = D3DFMT_D24S8;
+		return TRUE;
+	}
+
     if( m_dwMinDepthBits <= 16 && m_dwMinStencilBits == 0 )
     {
         if( SUCCEEDED( rkD3D.CheckDeviceFormat( iD3DAdapterInfo, DeviceType,

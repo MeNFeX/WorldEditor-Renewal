@@ -5,7 +5,9 @@
 #include "../WorldEditor.h"
 #include "mapterraintexturepreview.h"
 #include "../DataCtrl/MapAccessorTerrain.h"
+#include "../DataCtrl/ImageD3D.h"
 #include "../../EterLib/ResourceManager.h"
+#include "../../EterPack/EterPackManager.h"
 
 #ifdef _DEBUG
 	#define new DEBUG_NEW
@@ -13,24 +15,15 @@
 	static char THIS_FILE[] = __FILE__;
 #endif
 
-#include <il/ilu.h>
-
 /////////////////////////////////////////////////////////////////////////////
 // CMapTerrainTexturePreview
 
 CMapTerrainTexturePreview::CMapTerrainTexturePreview()
 {
-	m_ilImage = 0;
 }
 
 CMapTerrainTexturePreview::~CMapTerrainTexturePreview()
 {
-	if (m_ilImage)
-	{
-		ilDeleteImages (1, &m_ilImage);
-	}
-
-	m_ilImage = 0;
 }
 
 BEGIN_MESSAGE_MAP (CMapTerrainTexturePreview, CWnd)
@@ -47,75 +40,90 @@ BOOL CMapTerrainTexturePreview::Create()
 	CRect rect;
 	GetClientRect (&rect);
 	if (!m_DIB.Create (NULL, rect.Width(), rect.Height()))
-	{
 		return FALSE;
-	}
 
-	ilGenImages (1, &m_ilImage);
-	ilBindImage (m_ilImage);
-
+	DWORD * pdwDst = (DWORD *) m_DIB.GetPointer();
+	if (pdwDst && rect.Width() > 0 && rect.Height() > 0)
+		memset (pdwDst, 0, rect.Width() * rect.Height() * 4);
 	return TRUE;
 }
 
 /////////////////////////////////////////////////////////////////////////////
 // CMapTerrainTexturePreview message handlers
 
+void CMapTerrainTexturePreview::ClearPreview()
+{
+	DWORD * pdwDst = (DWORD *) m_DIB.GetPointer();
+	const int dibW = m_DIB.GetWidth();
+	const int dibH = m_DIB.GetHeight();
+	if (pdwDst && dibW > 0 && dibH > 0)
+		memset (pdwDst, 0, dibW * dibH * 4);
+}
+
 void CMapTerrainTexturePreview::UpdatePreview (int nTexNum)
 {
-	CWorldEditorApp * pApplication = (CWorldEditorApp*)AfxGetApp();
-	CMapManagerAccessor * pMapManagerAccessor = pApplication->GetMapManagerAccessor();
 	CTextureSet * pTextureSet = CTerrain::GetTextureSet();
+	const int dibW = m_DIB.GetWidth();
+	const int dibH = m_DIB.GetHeight();
+	DWORD * pdwDst = (DWORD *) m_DIB.GetPointer();
 
-	if (nTexNum == 0)
+	if (nTexNum == 0 || !pdwDst || dibW <= 0 || dibH <= 0 || !ms_lpd3dDevice)
 	{
-		ilClearImage();
+		ClearPreview();
+		Invalidate (TRUE);
+		return;
+	}
+
+	CGraphicImageInstance & rImageInstance = pTextureSet->GetTexture (nTexNum).ImageInstance;
+	CGraphicImage * pImage = rImageInstance.GetGraphicImagePointer();
+	if (!pImage || !pImage->GetFileName() || !pImage->GetFileName()[0])
+	{
+		ClearPreview();
+		Invalidate (TRUE);
+		return;
+	}
+	CMappedFile kFile;
+	LPCVOID pvData = NULL;
+	if (!CEterPackManager::Instance().Get (kFile, pImage->GetFileName(), &pvData) || !pvData || kFile.Size() <= 0)
+	{
+		TraceError ("The file [%s] doesn't exist", pImage->GetFileName());
+		ClearPreview();
+		Invalidate (TRUE);
+		return;
+	}
+
+	LPDIRECT3DSURFACE9 surface = NULL;
+	if (!ImageLoadMemory (ms_lpd3dDevice, pvData, (UINT) kFile.Size(), dibW, dibH, &surface))
+	{
+		TraceError ("The file [%s] could not be decoded", pImage->GetFileName());
+		ClearPreview();
+		Invalidate (TRUE);
+		return;
+	}
+
+	D3DLOCKED_RECT lock;
+	if (SUCCEEDED (surface->LockRect (&lock, NULL, D3DLOCK_READONLY)) && lock.pBits)
+	{
+		for (int y = 0; y < dibH; ++y)
+		{
+			const DWORD * row = (const DWORD *) ((const BYTE *) lock.pBits + y * lock.Pitch);
+			for (int x = 0; x < dibW; ++x)
+				pdwDst[x + y * dibW] = (row[x] & 0x00ffffff) | 0xff000000;
+		}
+		surface->UnlockRect();
 	}
 	else
 	{
-		CGraphicImageInstance & rImageInstance = pTextureSet->GetTexture (nTexNum).ImageInstance;
-		CGraphicImage * pImage = rImageInstance.GetGraphicImagePointer();
-		if (!pImage || !pImage->GetFileName() || !pImage->GetFileName()[0] || !CResourceManager::Instance().IsFileExist (pImage->GetFileName()))
-		{
-			TraceError ("The file [%s] doesn't exist", (pImage && pImage->GetFileName()) ? pImage->GetFileName() : "");
-			ilClearImage();
-			return;
-		}
-		ilLoadImage ((const ILstring)pImage->GetFileName());
-		iluScale (m_DIB.GetWidth(), m_DIB.GetHeight(), 1);
-		Invalidate (TRUE);
+		ClearPreview();
 	}
+	surface->Release();
+	Invalidate (TRUE);
 }
 
 void CMapTerrainTexturePreview::OnPaint()
 {
-	CPaintDC dc (this); // device context for painting
+	CPaintDC dc (this);
 
-	DWORD * pdwDst = (DWORD*)m_DIB.GetPointer();
-
-	if (ilIsImage (m_ilImage))
-	{
-		DWORD * pdwSrc = (DWORD*)ilGetData();
-		int iwidth = ilGetInteger (IL_IMAGE_WIDTH);
-		int iheight = ilGetInteger (IL_IMAGE_HEIGHT);
-		int iBPP = ilGetInteger (IL_IMAGE_BYTES_PER_PIXEL);
-
-		for (int y = 0; y < iheight; ++y)
-		{
-			for (int x = 0; x < iwidth; ++x)
-			{
-				DWORD dwColor = pdwSrc[x + y * iwidth];
-				BYTE byr = dwColor & 0xff;
-				BYTE byg = (dwColor >> 8) & 0xff;
-				BYTE byb = (dwColor >> 16) & 0xff;
-				dwColor = DWORD (0xff << 24) | DWORD (byr << 16) | DWORD (byg << 8) | DWORD (byb);
-				pdwDst[x + y * m_DIB.GetWidth()] = dwColor;
-			}
-		}
-	}
-	else
-	{
-		memset (pdwDst, 0, m_DIB.GetWidth()*m_DIB.GetHeight() * 4);
-	}
-
-	m_DIB.Put (dc.GetSafeHdc(), 0, 0);
+	if (m_DIB.GetPointer())
+		m_DIB.Put (dc.GetSafeHdc(), 0, 0);
 }

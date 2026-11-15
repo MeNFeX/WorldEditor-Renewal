@@ -1,5 +1,6 @@
 #include "Stdafx.h"
 #include "SoundManager2D.h"
+#include "MilesMini.h"
 
 CSoundManager2D::CSoundManager2D()
 {
@@ -13,18 +14,15 @@ bool CSoundManager2D::Initialize()
 {
 	CSoundBase::Initialize();
 
-	if (ms_DIGDriver)
-		return true;
-
-	ms_DIGDriver = AIL_open_digital_driver(44100, 16, 2, 0);
+	if (!MiniEnsureEngine())
+	{
+		CSoundBase::Destroy();
+		return false;
+	}
 
 	for (int i = 0; i < INSTANCE_MAX_COUNT; ++i)
 		ms_Instances[i].Initialize();
-/*	ms_DIGDriver = AIL_open_digital_driver(44100,
-										   (DIG_F_STEREO_16 & DIG_F_16BITS_MASK) ? 16 : 8,
-										   (DIG_F_STEREO_16 & DIG_F_16BITS_MASK) ? 2 : 1,
-										   0);
-*/
+
 	return true;
 }
 
@@ -32,12 +30,6 @@ void CSoundManager2D::Destroy()
 {
 	for (int i = 0; i < INSTANCE_MAX_COUNT; ++i)
 		ms_Instances[i].Destroy();
-
-	if (ms_DIGDriver != nullptr)
-	{
-		AIL_close_digital_driver(ms_DIGDriver);
-		ms_DIGDriver = nullptr;
-	}
 
 	CSoundBase::Destroy();
 }

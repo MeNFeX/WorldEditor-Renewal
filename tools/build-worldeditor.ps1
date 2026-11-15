@@ -1,6 +1,8 @@
 param(
     [ValidateSet('WE-Debug', 'WE-Release')]
     [string]$Configuration = 'WE-Debug',
+    [ValidateSet('Win32', 'x64')]
+    [string]$Platform = 'Win32',
     [string]$DataDirectory = 'D:\ymir work'
 )
 
@@ -15,8 +17,9 @@ if (-not $installation) { throw 'Visual Studio with MSBuild was not found.' }
 $msbuild = Join-Path $installation 'MSBuild\Current\Bin\MSBuild.exe'
 $logDirectory = Join-Path $projectRoot '.build'
 New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
-$buildLog = Join-Path $logDirectory ($Configuration + '.log')
+$logName = if ($Platform -eq 'Win32') { $Configuration } else { "$Configuration-$Platform" }
+$buildLog = Join-Path $logDirectory ($logName + '.log')
 $solution = Join-Path $projectRoot 'Client\Metin2Client.sln'
-& $msbuild $solution /t:WorldEditor "/p:Configuration=$Configuration" "/p:WorldEditorDataDirectory=$DataDirectory" /p:Platform=Win32 /m:4 /nologo /v:minimal /fl "/flp:logfile=$buildLog;verbosity=normal"
+& $msbuild $solution /t:WorldEditor "/p:Configuration=$Configuration" "/p:WorldEditorDataDirectory=$DataDirectory" "/p:Platform=$Platform" /m:4 /nologo /v:minimal /fl "/flp:logfile=$buildLog;verbosity=normal"
 if ($LASTEXITCODE -ne 0) { throw "Build failed. See $buildLog" }
-Write-Host "Executable: $(Join-Path $DataDirectory "WorldEditor_${Configuration}_Win32.exe")"
+Write-Host "Executable: $(Join-Path $DataDirectory "WorldEditor_${Configuration}_${Platform}.exe")"

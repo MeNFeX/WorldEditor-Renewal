@@ -749,7 +749,7 @@ void CEffectParticlePage::OnHScroll (UINT nSBCode, UINT nPos, CScrollBar* pScrol
 
 void CEffectParticlePage::OnInsertTexture()
 {
-	DWORD dwFlag = OFN_ALLOWMULTISELECT | OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR;
+	DWORD dwFlag = OFN_ALLOWMULTISELECT | OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR | OFN_ENABLESIZING;
 	const char* c_szFilter = "Texture Files (*.tga, *.jpg)|*.tga;*.jpg|Sequence Files (*.ifl)|*.ifl|All Files (*.*)|*.*|";
 
 	CFileDialog FileOpener (TRUE, "Load", "", dwFlag, c_szFilter, this);

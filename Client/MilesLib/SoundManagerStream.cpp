@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "SoundManagerStream.h"
+#include "MilesMini.h"
 
 CSoundManagerStream::CSoundManagerStream()
 {
@@ -13,10 +14,11 @@ bool CSoundManagerStream::Initialize()
 {
 	CSoundBase::Initialize();
 
-	if (ms_DIGDriver)
-		return true;
-
-	ms_DIGDriver = AIL_open_digital_driver(44100, 16, 2, 0);
+	if (!MiniEnsureEngine())
+	{
+		CSoundBase::Destroy();
+		return false;
+	}
 
 	for (int i = 0; i < MUSIC_INSTANCE_MAX_NUM; ++i)
 		m_Instances[i].Initialize();
@@ -27,7 +29,7 @@ bool CSoundManagerStream::Initialize()
 void CSoundManagerStream::Destroy()
 {
 	for (int i=0; i<MUSIC_INSTANCE_MAX_NUM; ++i)
-		m_Instances[i].Stop();
+		m_Instances[i].Destroy();
 
 	CSoundBase::Destroy();
 }
@@ -37,14 +39,7 @@ bool CSoundManagerStream::SetInstance(DWORD dwIndex, const char* filename)
 	if (!CheckInstanceIndex(dwIndex))
 		return false;
 
-	const HSTREAM hStream = AIL_open_stream(ms_DIGDriver, filename, 0);
-
-	if (nullptr == hStream)
-		return false;
-
-	m_Instances[dwIndex].SetStream(hStream);
-
-	return true;
+	return m_Instances[dwIndex].LoadFile(filename);
 }
 
 CSoundInstanceStream * CSoundManagerStream::GetInstance(DWORD dwIndex)

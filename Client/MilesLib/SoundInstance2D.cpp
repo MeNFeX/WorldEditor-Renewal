@@ -1,7 +1,9 @@
 #include "stdafx.h"
 #include "SoundManager2D.h"
+#include "MilesMini.h"
 
-CSoundInstance2D::CSoundInstance2D() : m_sample(nullptr), m_pSoundData(nullptr)
+CSoundInstance2D::CSoundInstance2D()
+	: m_voice(nullptr), m_pSoundData(nullptr)
 {
 }
 
@@ -14,31 +16,27 @@ void CSoundInstance2D::Destroy()
 {
 	SAFE_RELEASE(m_pSoundData);
 
-	if (m_sample)
-	{
-		AIL_release_sample_handle(m_sample);
-		m_sample = nullptr;
-	}
+	MiniVoiceDestroy(m_voice);
+	m_voice = nullptr;
 }
 
 bool CSoundInstance2D::Initialize()
 {
-	if (m_sample)
+	if (m_voice)
 		return true;
 
-	m_sample = AIL_allocate_sample_handle(ms_DIGDriver);
-	return m_sample ? true : false;
+	return MiniVoiceCreate(&m_voice);
 }
 
 bool CSoundInstance2D::SetSound(CSoundData * pSoundData)
 {
-	assert(m_sample != nullptr && pSoundData != nullptr);
+	assert(pSoundData != nullptr);
 
 	const LPVOID lpData = pSoundData->Get();
 
-	AIL_init_sample(m_sample);
+	assert(m_voice != nullptr);
 
-    if (AIL_set_sample_file(m_sample, lpData, pSoundData->GetSize()) == 0)
+	if (!lpData || !MiniVoiceLoad(m_voice, lpData, pSoundData->GetSize(), false))
 	{
 		if (m_pSoundData != nullptr)
 		{
@@ -47,7 +45,7 @@ bool CSoundInstance2D::SetSound(CSoundData * pSoundData)
 		}
 
 		pSoundData->Release();
-		TraceError("%s: %s", AIL_last_error(), pSoundData->GetFileName());
+		TraceError("miniaudio: %s", pSoundData->GetFileName());
 		return false;
 	}
 
@@ -63,40 +61,39 @@ bool CSoundInstance2D::SetSound(CSoundData * pSoundData)
 
 bool CSoundInstance2D::IsDone() const
 {
-	return AIL_sample_status(m_sample) == SMP_DONE;
+	return MiniVoiceIsDone(m_voice);
 }
 
 void CSoundInstance2D::Play(int iLoopCount, DWORD dwPlayCycleTimeLimit) const
 {
-    AIL_set_sample_loop_count(m_sample, iLoopCount);
-	AIL_start_sample(m_sample);
+	(void) dwPlayCycleTimeLimit;
+	MiniVoicePlay(m_voice, iLoopCount);
 }
 
 void CSoundInstance2D::Pause() const
 {
-	AIL_stop_sample(m_sample);
+	MiniVoicePause(m_voice);
 }
 
 void CSoundInstance2D::Resume() const
 {
-	AIL_resume_sample(m_sample);
+	MiniVoiceResume(m_voice);
 }
 
 void CSoundInstance2D::Stop()
 {
-	AIL_end_sample(m_sample);
-	m_sample = nullptr;
+	MiniVoiceStop(m_voice);
 }
 
 void CSoundInstance2D::GetVolume(float& rfVolume) const
 {
-	AIL_sample_volume_pan(m_sample, &rfVolume, nullptr);
+	rfVolume = MiniVoiceGetVolume(m_voice);
 }
 
 void CSoundInstance2D::SetVolume(float volume) const
 {
 	volume = max(0.0f, min(1.0f, volume));
-	AIL_set_sample_volume_pan(m_sample, volume, 0.5f);
+	MiniVoiceSetVolume(m_voice, volume);
 }
 
 void CSoundInstance2D::SetPosition(float x, float y, float z) const
@@ -114,4 +111,3 @@ void CSoundInstance2D::SetVelocity(float fx, float fy, float fz, float fMagnitud
 {
 	assert(!"must not call this method");
 }
-

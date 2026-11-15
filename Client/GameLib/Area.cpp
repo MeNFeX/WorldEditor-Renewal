@@ -11,6 +11,86 @@
 #include "Property.h"
 
 #include <boost/algorithm/string.hpp>
+#include <stdarg.h>
+
+namespace
+{
+	enum
+	{
+		OBJLOG_SKIP = 0,
+		OBJLOG_KEEP,
+		OBJLOG_BUILDING_OK,
+		OBJLOG_BUILDING_EMPTY,
+		OBJLOG_TREE_OK,
+		OBJLOG_TREE_FAIL,
+		OBJLOG_EFFECT_OK,
+		OBJLOG_EFFECT_FAIL,
+		OBJLOG_AMBIENCE,
+		OBJLOG_DUNGEON,
+		OBJLOG_KIND_MAX
+	};
+
+	int g_objLogCount[OBJLOG_KIND_MAX];
+
+	void EditorObjectLog(const char* fmt, ...)
+	{
+#ifdef WORLD_EDITOR
+		static FILE* fp = NULL;
+		static bool opened = false;
+		if (!opened)
+		{
+			opened = true;
+			fp = fopen("D:\\ymir work\\editor_object_debug.txt", "wb");
+			if (fp)
+			{
+				SYSTEMTIME st;
+				GetLocalTime(&st);
+				fprintf(fp, "Jurnal obiecte %04d-%02d-%02d %02d:%02d:%02d\r\n",
+					(int) st.wYear, (int) st.wMonth, (int) st.wDay,
+					(int) st.wHour, (int) st.wMinute, (int) st.wSecond);
+				fprintf(fp, "SKIP = CRC din AreaData.txt fara property. BUILDING EMPTY = gr2 fara model. TREE FAIL = spt-ul nu s-a incarcat. EFFECT FAIL = mse-ul nu s-a inregistrat.\r\n");
+				fflush(fp);
+			}
+		}
+		if (!fp)
+			return;
+		va_list ap;
+		va_start(ap, fmt);
+		vfprintf(fp, fmt, ap);
+		va_end(ap);
+		fflush(fp);
+#else
+		(void) fmt;
+#endif
+	}
+
+	void EditorObjectMark(int kind)
+	{
+		if (kind >= 0 && kind < OBJLOG_KIND_MAX)
+			++g_objLogCount[kind];
+	}
+
+	void EditorObjectReset()
+	{
+		memset(g_objLogCount, 0, sizeof(g_objLogCount));
+	}
+
+	void EditorObjectSummary(const char* path)
+	{
+		EditorObjectLog("AREA %s  skip %d keep %d  building ok %d empty %d  tree ok %d fail %d  effect ok %d fail %d  ambience %d dungeon %d\r\n",
+			path ? path : "",
+			g_objLogCount[OBJLOG_SKIP],
+			g_objLogCount[OBJLOG_KEEP],
+			g_objLogCount[OBJLOG_BUILDING_OK],
+			g_objLogCount[OBJLOG_BUILDING_EMPTY],
+			g_objLogCount[OBJLOG_TREE_OK],
+			g_objLogCount[OBJLOG_TREE_FAIL],
+			g_objLogCount[OBJLOG_EFFECT_OK],
+			g_objLogCount[OBJLOG_EFFECT_FAIL],
+			g_objLogCount[OBJLOG_AMBIENCE],
+			g_objLogCount[OBJLOG_DUNGEON]);
+	}
+}
 
 #ifdef ENABLE_AREA_OPTIMIZATION
 template<typename T>
@@ -240,8 +320,26 @@ void CArea::Update()
 }
 #endif
 
+bool CArea::ms_bTreeOut = true;
+bool CArea::ms_bEffectOut = true;
+bool CArea::ms_bAmbienceOut = true;
+
 void CArea::UpdateAroundAmbience(float fX, float fY, float fZ)
 {
+	if (!ms_bAmbienceOut)
+	{
+		TAmbienceInstanceVector::iterator i;
+		for (i = m_AmbienceCloneInstanceVector.begin(); i != m_AmbienceCloneInstanceVector.end(); ++i)
+		{
+			TAmbienceInstance * pInstance = *i;
+			if (pInstance->iPlaySoundIndex != -1)
+			{
+				CSoundManager::Instance().StopSound3D(pInstance->iPlaySoundIndex);
+				pInstance->iPlaySoundIndex = -1;
+			}
+		}
+		return;
+	}
 	// Ambience
 	TAmbienceInstanceVector::iterator i;
 	for (i = m_AmbienceCloneInstanceVector.begin(); i != m_AmbienceCloneInstanceVector.end(); ++i)
@@ -269,6 +367,8 @@ struct CArea_FEffectInstanceRender
 
 void CArea::RenderEffect()
 {
+	if (!ms_bEffectOut)
+		return;
 #ifdef ENABLE_AREA_OPTIMIZATION
 	STATEMANAGER.SetTexture(0, nullptr);
 	STATEMANAGER.SetTexture(1, nullptr);
@@ -333,6 +433,43 @@ void CArea::CollectRenderingObject(std::vector<CGraphicThingInstance*>& rkVct_pk
 		}
 	}
 }
+
+#ifdef WORLD_EDITOR
+static bool EditorObjectInCamera(CGraphicObjectInstance * pObject)
+{
+	if (!pObject)
+		return false;
+
+	D3DXVECTOR3 vCenter;
+	float fRadius = 0.0f;
+	if (!pObject->GetBoundingSphere (vCenter, fRadius) || fRadius < 1.0f)
+	{
+		vCenter = pObject->GetPosition();
+		fRadius = 300.0f;
+	}
+	return CSpeedTreeDirectX::IsSphereInCamera (vCenter.x, vCenter.y, vCenter.z, fRadius);
+}
+
+DWORD CArea::EditorVisibleObjectCount() const
+{
+	DWORD dwCount = 0;
+	TThingInstanceVector::const_iterator itThing = m_ThingCloneInstaceVector.begin();
+	for (; itThing != m_ThingCloneInstaceVector.end(); ++itThing)
+	{
+		CGraphicThingInstance * pThing = *itThing;
+		if (pThing && pThing->isShow() && EditorObjectInCamera (pThing))
+			++dwCount;
+	}
+
+	TDungeonBlockInstanceVector::const_iterator itBlock = m_DungeonBlockCloneInstanceVector.begin();
+	for (; itBlock != m_DungeonBlockCloneInstanceVector.end(); ++itBlock)
+	{
+		if (EditorObjectInCamera (*itBlock))
+			++dwCount;
+	}
+	return dwCount;
+}
+#endif
 
 void CArea::CollectBlendRenderingObject(std::vector<CGraphicThingInstance*>& rkVct_pkBlendThingInst)
 {
@@ -454,6 +591,8 @@ void CArea::RenderCollision() const
 
 void CArea::RenderAmbience()
 {
+	if (!ms_bAmbienceOut)
+		return;
 	DWORD dwColorArg1, dwColorOp;
 	STATEMANAGER.GetTextureStageState(0, D3DTSS_COLORARG1, &dwColorArg1);
 	STATEMANAGER.GetTextureStageState(0, D3DTSS_COLOROP, &dwColorOp);
@@ -675,11 +814,13 @@ void CArea::Refresh()
 		}
 		else if (prt::PROPERTY_TYPE_BUILDING == pObjectInstance->dwType)
 		{
-			pObjectInstance->pThingInstance->Update();
-			pObjectInstance->pThingInstance->Transform();
-			pObjectInstance->pThingInstance->Show();
-			pObjectInstance->pThingInstance->DeformAll();
-			m_ThingCloneInstaceVector.push_back(pObjectInstance->pThingInstance);
+		pObjectInstance->pThingInstance->Update();
+		pObjectInstance->pThingInstance->Transform();
+		pObjectInstance->pThingInstance->Show();
+		// The editor keeps the near model. Skinning the unused LOD meshes
+		// here only stretches the map load.
+		pObjectInstance->pThingInstance->Deform();
+		m_ThingCloneInstaceVector.push_back(pObjectInstance->pThingInstance);
 
 			pObjectInstance->pThingInstance->BuildBoundingSphere();
 			pObjectInstance->pThingInstance->UpdateBoundingSphere();
@@ -820,6 +961,10 @@ void CArea::__SetObjectInstance_SetEffect(TObjectInstance * pObjectInstance, con
 		if (!rem.RegisterEffect(Data.strFileName.c_str()))
 		{
 			pObjectInstance->dwEffectID = 0xffffffff;
+			EditorObjectMark(OBJLOG_EFFECT_FAIL);
+			EditorObjectLog("EFFECT FAIL crc %u  x %.1f y %.1f z %.1f  %s\r\n",
+				c_pData->dwCRC, c_pData->Position.x, c_pData->Position.y, c_pData->Position.z,
+				Data.strFileName.c_str());
 			TraceError("CArea::SetEffect effect register error %s\n",Data.strFileName.c_str());
 			return;
 		}
@@ -847,13 +992,21 @@ void CArea::__SetObjectInstance_SetEffect(TObjectInstance * pObjectInstance, con
 	pObjectInstance->dwEffectInstanceIndex = m_EffectInstanceMap.size();
 #endif
 	m_EffectInstanceMap.insert(TEffectInstanceMap::value_type(pObjectInstance->dwEffectInstanceIndex, pEffectInstance));
+	EditorObjectMark(OBJLOG_EFFECT_OK);
+	EditorObjectLog("EFFECT OK crc %u  x %.1f y %.1f z %.1f  %s\r\n",
+		c_pData->dwCRC, c_pData->Position.x, c_pData->Position.y, c_pData->Position.z,
+		Data.strFileName.c_str());
 }
 
 void CArea::__SetObjectInstance_SetTree(TObjectInstance * pObjectInstance, const TObjectData * c_pData, CProperty * pProperty) const
 {
 	const char * c_szTreeName;
 	if (!pProperty->GetString("TreeFile", &c_szTreeName))
+	{
+		EditorObjectMark(OBJLOG_TREE_FAIL);
+		EditorObjectLog("TREE FAIL crc %u  TreeFile lipsa  %s\r\n", c_pData->dwCRC, pProperty->GetFileName());
 		return;
+	}
 
 	pObjectInstance->SetTree(
 		c_pData->Position.x,
@@ -862,8 +1015,22 @@ void CArea::__SetObjectInstance_SetTree(TObjectInstance * pObjectInstance, const
 		c_pData->dwCRC,
 		c_szTreeName
 	);
-	if (pObjectInstance->pTree && CSpeedTreeWrapper::IsRotationEnabled())
-		pObjectInstance->pTree->SetRotation(c_pData->m_fYaw, c_pData->m_fPitch, c_pData->m_fRoll);
+	if (!pObjectInstance->pTree)
+	{
+		EditorObjectMark(OBJLOG_TREE_FAIL);
+		EditorObjectLog("TREE FAIL crc %u  x %.1f y %.1f z %.1f  %s\r\n",
+			c_pData->dwCRC, c_pData->Position.x, c_pData->Position.y, c_pData->Position.z,
+			c_szTreeName);
+	}
+	else
+	{
+		EditorObjectMark(OBJLOG_TREE_OK);
+		EditorObjectLog("TREE OK crc %u  x %.1f y %.1f z %.1f  %s\r\n",
+			c_pData->dwCRC, c_pData->Position.x, c_pData->Position.y, c_pData->Position.z,
+			c_szTreeName);
+		if (CSpeedTreeWrapper::IsRotationEnabled())
+			pObjectInstance->pTree->SetRotation(c_pData->m_fYaw, c_pData->m_fPitch, c_pData->m_fRoll);
+	}
 }
 
 void CArea::TObjectInstance::SetTree(float x, float y, float z, DWORD dwTreeCRC, const char* c_szTreeName)
@@ -877,7 +1044,11 @@ void CArea::__SetObjectInstance_SetBuilding(TObjectInstance * pObjectInstance, c
 {
 	prt::TPropertyBuilding Data;
 	if (!prt::PropertyBuildingStringToData(pProperty, &Data))
+	{
+		EditorObjectMark(OBJLOG_BUILDING_EMPTY);
+		EditorObjectLog("BUILDING EMPTY crc %u  property fara BuildingFile  %s\r\n", c_pData->dwCRC, pProperty->GetFileName());
 		return;
+	}
 
 	CResourceManager& rkResMgr=CResourceManager::Instance();
 
@@ -886,6 +1057,10 @@ void CArea::__SetObjectInstance_SetBuilding(TObjectInstance * pObjectInstance, c
 
 	if (pThing->IsEmpty())
 	{
+		EditorObjectMark(OBJLOG_BUILDING_EMPTY);
+		EditorObjectLog("BUILDING EMPTY crc %u  x %.1f y %.1f z %.1f  %s\r\n",
+			c_pData->dwCRC, c_pData->Position.x, c_pData->Position.y, c_pData->Position.z,
+			Data.strFileName.c_str());
 #ifdef _DEBUG
 		TraceError("CArea::SetBuilding: There is no data: %s", Data.strFileName.c_str());
 #endif
@@ -945,6 +1120,11 @@ void CArea::__SetObjectInstance_SetBuilding(TObjectInstance * pObjectInstance, c
 	pObjectInstance->pThingInstance->RegisterBoundingSphere();
 	__LoadAttribute(pObjectInstance, Data.strAttributeDataFileName.c_str());
 	pThing->Release();
+	EditorObjectMark(OBJLOG_BUILDING_OK);
+	EditorObjectLog("BUILDING OK crc %u models %d  x %.1f y %.1f z %.1f  %s\r\n",
+		c_pData->dwCRC, iModelCount,
+		c_pData->Position.x, c_pData->Position.y, c_pData->Position.z,
+		Data.strFileName.c_str());
 }
 
 void CArea::__SetObjectInstance_SetAmbience(TObjectInstance * pObjectInstance, const TObjectData * c_pData, CProperty * pProperty)
@@ -954,6 +1134,10 @@ void CArea::__SetObjectInstance_SetAmbience(TObjectInstance * pObjectInstance, c
 		return;
 
 	pObjectInstance->dwType = prt::PROPERTY_TYPE_AMBIENCE;
+	EditorObjectMark(OBJLOG_AMBIENCE);
+	EditorObjectLog("AMBIENCE crc %u  x %.1f y %.1f z %.1f  %s\r\n",
+		c_pData->dwCRC, c_pData->Position.x, c_pData->Position.y, c_pData->Position.z,
+		pObjectInstance->pAmbienceInstance->AmbienceData.strName.c_str());
 
 	TAmbienceInstance * pAmbienceInstance = pObjectInstance->pAmbienceInstance;
 	pAmbienceInstance->fx = c_pData->Position.x;
@@ -985,6 +1169,10 @@ void CArea::__SetObjectInstance_SetDungeonBlock(TObjectInstance * pObjectInstanc
 	pObjectInstance->dwType = prt::PROPERTY_TYPE_DUNGEON_BLOCK;
 	pObjectInstance->pDungeonBlock = ms_DungeonBlockInstancePool.Alloc();
 	pObjectInstance->pDungeonBlock->Load(Data.strFileName.c_str());
+	EditorObjectMark(OBJLOG_DUNGEON);
+	EditorObjectLog("DUNGEON crc %u  x %.1f y %.1f z %.1f  %s\r\n",
+		c_pData->dwCRC, c_pData->Position.x, c_pData->Position.y, c_pData->Position.z,
+		Data.strFileName.c_str());
 	pObjectInstance->pDungeonBlock->SetPosition(c_pData->Position.x, c_pData->Position.y, c_pData->Position.z + c_pData->m_fHeightBias);
 	pObjectInstance->pDungeonBlock->SetRotation(
 		c_pData->m_fYaw,
@@ -1056,13 +1244,16 @@ void CArea::__LoadAttribute(TObjectInstance * pObjectInstance, const char * c_sz
 bool CArea::Load(const char * c_szPathName)
 {
 	Clear();
+	EditorObjectReset();
 
 	const std::string strObjectDataFileName = c_szPathName + std::string("AreaData.txt");
 	const std::string strAmbienceDataFileName = c_szPathName + std::string("AreaAmbienceData.txt");
 
+	EditorObjectLog("OPEN %s\r\n", strObjectDataFileName.c_str());
 	__Load_LoadObject(strObjectDataFileName.c_str());
 	__Load_LoadAmbience(strAmbienceDataFileName.c_str());
 	__Load_BuildObjectInstances();
+	EditorObjectSummary(c_szPathName);
 
 	return true;
 }
@@ -1073,18 +1264,21 @@ bool CArea::__Load_LoadObject(const char * c_szFileName)
 
 	if (!LoadMultipleTextData(c_szFileName, stTokenVectorMap))
 	{
+		EditorObjectLog("FAIL open %s\r\n", c_szFileName);
 		TraceError(" CArea::Load File Load %s ERROR", c_szFileName);
 		return false;
 	}
 
 	if (!stTokenVectorMap.contains("areadatafile"))
 	{
+		EditorObjectLog("FAIL format header %s\r\n", c_szFileName);
 		TraceError(" CArea::__LoadObject File Format %s ERROR 1", c_szFileName);
 		return false;
 	}
 
 	if (!stTokenVectorMap.contains("objectcount"))
 	{
+		EditorObjectLog("FAIL format objectcount %s\r\n", c_szFileName);
 		TraceError(" CArea::__LoadObject File Format %s ERROR 2", c_szFileName);
 		return false;
 	}
@@ -1114,7 +1308,7 @@ bool CArea::__Load_LoadObject(const char * c_szFileName)
 		ObjectData.Position.x = atof(c_rstrxPosition.c_str());
 		ObjectData.Position.y = atof(c_rstryPosition.c_str());
 		ObjectData.Position.z = atof(c_rstrzPosition.c_str());
-		ObjectData.dwCRC = atoi	(c_rstrCRC.c_str());
+		ObjectData.dwCRC = strtoul(c_rstrCRC.c_str(), nullptr, 10);
 
 		ObjectData.InitializeRotation(); //ObjectData.m_fYaw = ObjectData.m_fPitch = ObjectData.m_fRoll = 0;
 		if (rVector.size() > 4)
@@ -1154,9 +1348,25 @@ bool CArea::__Load_LoadObject(const char * c_szFileName)
 		CProperty * pProperty;
 		if (!CPropertyManager::Instance().Get(ObjectData.dwCRC, &pProperty))
 		{
+			EditorObjectMark(OBJLOG_SKIP);
+			EditorObjectLog("SKIP %s  crc %u  x %s y %s z %s  property lipsa\r\n",
+				szObjectName, ObjectData.dwCRC,
+				c_rstrxPosition.c_str(), c_rstryPosition.c_str(), c_rstrzPosition.c_str());
 			TraceError(" CArea::LoadObject Property(%u) Load ERROR", ObjectData.dwCRC);
 			continue;
 		}
+
+		const char* c_szType = "";
+		const char* c_szName = "";
+		pProperty->GetString("PropertyType", &c_szType);
+		pProperty->GetString("PropertyName", &c_szName);
+		EditorObjectMark(OBJLOG_KEEP);
+		EditorObjectLog("KEEP %s  crc %u  %s  %s  %s\r\n",
+			szObjectName,
+			ObjectData.dwCRC,
+			c_szType ? c_szType : "",
+			c_szName ? c_szName : "",
+			pProperty->GetFileName());
 
 		m_ObjectDataVector.push_back(ObjectData);
 	}
@@ -1212,7 +1422,7 @@ bool CArea::__Load_LoadAmbience(const char * c_szFileName)
 		ObjectData.Position.x = atof(c_rstrxPosition.c_str());
 		ObjectData.Position.y = atof(c_rstryPosition.c_str());
 		ObjectData.Position.z = atof(c_rstrzPosition.c_str());
-		ObjectData.dwCRC = atoi	(c_rstrCRC.c_str());
+		ObjectData.dwCRC = strtoul(c_rstrCRC.c_str(), nullptr, 10);
 		ObjectData.dwRange = atoi(c_rstrRange.c_str());
 
 		ObjectData.InitializeRotation();

@@ -53,7 +53,7 @@ void CMapOutdoor::CreateCharacterShadowTexture()
 	D3DSURFACE_DESC kDesc;
 	pBackBufferSurface->GetDesc(&kDesc);
 	pBackBufferSurface->Release();
-	if (FAILED(ms_lpd3dDevice->CreateDepthStencilSurface(m_wShadowMapSize, m_wShadowMapSize, D3DFMT_D16, kDesc.MultiSampleType, kDesc.MultiSampleQuality, FALSE, &m_lpCharacterShadowMapDepthSurface, nullptr)))
+	if (FAILED(ms_lpd3dDevice->CreateDepthStencilSurface(m_wShadowMapSize, m_wShadowMapSize, D3DFMT_D16, D3DMULTISAMPLE_NONE, 0, FALSE, &m_lpCharacterShadowMapDepthSurface, nullptr)))
 	{
 		TraceError("CMapOutdoor Unable to create Character Shadow depth Surface\n");
 		return;
@@ -133,7 +133,7 @@ bool CMapOutdoor::BeginRenderCharacterShadowToTexture()
 
 	if (FAILED(ms_lpd3dDevice->SetDepthStencilSurface(m_lpCharacterShadowMapDepthSurface)))
 	{
-		TraceError("CMapOutdoor::BeginRenderCharacterShadowToTexture : Unable to Set Shadow Map Render Target\n");
+		TraceError("CMapOutdoor::BeginRenderCharacterShadowToTexture : Unable to Set Shadow Map Depth Surface\n");
 		bSuccess = false;
 	}
 

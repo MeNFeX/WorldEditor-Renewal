@@ -2,6 +2,7 @@
 //
 
 #include "StdAfx.h"
+#include "../../GameLib/Area.h"
 #include "../WorldEditor.h"
 #include "MapFilePage.h"
 #include "../Dialog/NewMapDlg.h"
@@ -14,6 +15,8 @@
 #include "../Dialog/changebasexydlg.h"
 #include "../Dialog/MapPortalDialog.h"
 #include "../Util.h"
+#include <shellapi.h>
+#include <direct.h>
 
 #ifdef _DEBUG
 	#define new DEBUG_NEW
@@ -65,6 +68,9 @@ BEGIN_MESSAGE_MAP (CMapFilePage, CPageCtrl)
 	ON_BN_CLICKED (IDC_MAP_FILE_AUTO_SAVE, OnCheckAutoSave)
 	ON_BN_CLICKED (IDC_MAP_FILE_RELOAD, OnReloadMap)
 	ON_BN_CLICKED (IDC_MAP_FILE_EXPORT, OnExportMap)
+	ON_BN_CLICKED (IDC_MAP_FILE_CLOSE, OnCloseMap)
+	ON_BN_CLICKED (IDC_MAP_FILE_AUTO_BACKUP, OnCheckAutoBackup)
+	ON_BN_CLICKED (IDC_MAP_FILE_DATA_ENCRYPTION, OnCheckDataEncryption)
 	ON_BN_CLICKED (IDC_MAP_FILE_SAVEAS, OnSaveAsMap)
 	ON_BN_CLICKED (IDC_MAP_FILE_SAVE_COLLISION_DATA, OnSaveCollisionData)
 	ON_BN_CLICKED (IDC_MAP_FILE_SAVE_SERVER_ATTR, OnSaveServerAttr)
@@ -76,6 +82,9 @@ BEGIN_MESSAGE_MAP (CMapFilePage, CPageCtrl)
 	ON_BN_CLICKED (IDC_BUTTON_INIT_BASETEXTUREMAP, OnButtonInitBasetexturemap)
 	ON_BN_CLICKED (IDC_CHECK_PATCH_GRID, OnCheckPatchGrid)
 	ON_BN_CLICKED (IDC_CHECK_WATER, OnCheckWater)
+	ON_BN_CLICKED (IDC_CHECK_TREE, OnCheckTree)
+	ON_BN_CLICKED (IDC_CHECK_EFFECT, OnCheckEffect)
+	ON_BN_CLICKED (IDC_CHECK_AMBIENCE, OnCheckAmbience)
 	ON_BN_CLICKED (IDC_CHECK_COMPASS, OnCheckCompass)
 	ON_BN_CLICKED (IDC_BUTTON_SAVE_ATLAS, OnButtonSaveAtlas)
 	ON_BN_CLICKED (IDC_BUTTON_CHANGE_BASEXY, OnButtonChangeBasexy)
@@ -116,6 +125,9 @@ void CMapFilePage::Initialize()
 	CheckDlgButton (IDC_MAP_TERRAIN_OPTION_OBJECT_COLLISION, FALSE);
 	CheckDlgButton (IDC_MAP_TERRAIN_OPTION_OBJECT_SHADOW, rConfig.ViewShadow() ? TRUE : FALSE);
 	CheckDlgButton (IDC_CHECK_WATER, rConfig.ViewWater() ? TRUE : FALSE);
+	CheckDlgButton (IDC_CHECK_TREE, TRUE);
+	CheckDlgButton (IDC_CHECK_EFFECT, TRUE);
+	CheckDlgButton (IDC_CHECK_AMBIENCE, TRUE);
 	CheckDlgButton (IDC_MAP_TERRAIN_OPTION_TERRAIN, TRUE);
 	OnCheckOptionWireFrame();
 	OnCheckGrid();
@@ -125,8 +137,13 @@ void CMapFilePage::Initialize()
 	OnCheckOptionObjectCollisionRendering();
 	OnMapTerrainOptionObjectShadow();
 	OnCheckWater();
+	OnCheckTree();
+	OnCheckEffect();
+	OnCheckAmbience();
 	CheckDlgButton (IDC_CHECK_COMPASS, rConfig.EnableNewCompass() ? TRUE : FALSE);
 	OnCheckCompass();
+	CheckDlgButton (IDC_MAP_FILE_AUTO_BACKUP, rConfig.AutoBackup() ? TRUE : FALSE);
+	CheckDlgButton (IDC_MAP_FILE_DATA_ENCRYPTION, FALSE);
 }
 
 void CMapFilePage::UpdateUI()
@@ -145,13 +162,13 @@ void CMapFilePage::UpdateUI()
 	char buf[128];
 	SetDlgItemText (IDC_MAP_SCRIPT_NAME_PRINT, rMapOutdoor.GetName().c_str());
 
-	sprintf (buf, "%.2f m", (float) (m_lViewRadius) * (float) (CTerrainImpl::CELLSCALE) / 100.0f);
+	sprintf (buf, "%.2f meter", (float) (m_lViewRadius) * (float) (CTerrainImpl::CELLSCALE) / 100.0f);
 	SetDlgItemText (IDC_STATIC_VIEW_RADIUS, buf);
 
-	sprintf (buf, "%.2f m", (float) (CTerrainImpl::CELLSCALE) / 100.0f);
+	sprintf (buf, "%.2f meter", (float) (CTerrainImpl::CELLSCALE) / 100.0f);
 	SetDlgItemText (IDC_STATIC_WORLD_SCALE, buf);
 
-	sprintf (buf, "%.2f m", m_fHeightScale * 65535.0f / 100.0f);
+	sprintf (buf, "%.2f meter", m_fHeightScale * 65535.0f / 100.0f);
 	SetDlgItemText (IDC_STATIC_MAX_HEIGHT, buf);
 
 	sprintf (buf, "%d cm", dwBaseX);
@@ -162,6 +179,8 @@ void CMapFilePage::UpdateUI()
 
 	SetDlgItemText (IDC_STATIC_ENVIRONMENT_SET, strEnvironmentDataName.c_str());
 	CheckDlgButton (IDC_MAP_FILE_AUTO_SAVE, pMapManagerAccessor->IsAutoSave() ? 1 : 0);
+	CheckDlgButton (IDC_MAP_FILE_AUTO_BACKUP, CWorldEditorConfig::Instance().AutoBackup() ? TRUE : FALSE);
+	CheckDlgButton (IDC_MAP_FILE_DATA_ENCRYPTION, FALSE);
 }
 
 void CMapFilePage::RunLoadMapEvent()
@@ -190,6 +209,26 @@ void CMapFilePage::OnNewMap()
 	pMapManagerAccessor->CreateNewOutdoorMap();
 }
 
+bool CMapFilePage::LoadMapByFolderName (const char* pszName)
+{
+	if (!pszName || !pszName[0])
+		return false;
+
+	CWorldEditorApp * pApplication = (CWorldEditorApp*) AfxGetApp();
+	CMapManagerAccessor * pMapManagerAccessor = pApplication->GetMapManagerAccessor();
+
+	if (!pMapManagerAccessor->LoadMap (pszName))
+		return false;
+
+	CMainFrame * pMainFrame = (CMainFrame*) AfxGetMainWnd();
+	CWorldEditorView * pView = (CWorldEditorView*) pMainFrame->GetActiveView();
+	pView->UpdateTargetPosition (0.0f, 0.0f);
+	pMainFrame->RunLoadMapEvent();
+
+	UpdateUI();
+	return true;
+}
+
 void CMapFilePage::OnLoadMap()
 {
 	char szSavingFolder[256 + 32];
@@ -207,21 +246,131 @@ void CMapFilePage::OnLoadMap()
 	}
 
 	pszDir++;
+	LoadMapByFolderName (pszDir);
+}
 
-	CWorldEditorApp * pApplication = (CWorldEditorApp*) AfxGetApp();
-	CMapManagerAccessor * pMapManagerAccessor = pApplication->GetMapManagerAccessor();
+static const char* c_szMapDropPageProp = "WorldEditorMapDropPage";
+static const char* c_szMapDropProcProp = "WorldEditorMapDropProc";
 
-	if (!pMapManagerAccessor->LoadMap (pszDir))
+static bool IsMapFolder (const char* c_szPath)
+{
+	const DWORD dwAttr = GetFileAttributesA (c_szPath);
+	if (dwAttr == INVALID_FILE_ATTRIBUTES || (dwAttr & FILE_ATTRIBUTE_DIRECTORY) == 0)
+		return false;
+
+	char szProperty[MAX_PATH];
+	_snprintf (szProperty, sizeof (szProperty), "%s\\MapProperty.txt", c_szPath);
+	const DWORD dwFile = GetFileAttributesA (szProperty);
+	return dwFile != INVALID_FILE_ATTRIBUTES && (dwFile & FILE_ATTRIBUTE_DIRECTORY) == 0;
+}
+
+static LRESULT CALLBACK MapFolderDropProc (HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+	if (uMsg == WM_DROPFILES)
 	{
-		return;
+		CMapFilePage* pPage = (CMapFilePage*) GetPropA (hWnd, c_szMapDropPageProp);
+		if (pPage)
+			pPage->HandleFolderDrop ((HDROP) wParam);
+		return 0;
 	}
 
-	CMainFrame * pMainFrame = (CMainFrame*) AfxGetMainWnd();
-	CWorldEditorView * pView = (CWorldEditorView*) pMainFrame->GetActiveView();
-	pView->UpdateTargetPosition (0.0f, 0.0f);
-	pMainFrame->RunLoadMapEvent();
+	WNDPROC pfnPrev = (WNDPROC) GetPropA (hWnd, c_szMapDropProcProp);
+	if (uMsg == WM_NCDESTROY)
+	{
+		if (pfnPrev)
+			SetWindowLongPtr (hWnd, GWLP_WNDPROC, (LONG_PTR) pfnPrev);
+		RemovePropA (hWnd, c_szMapDropProcProp);
+		RemovePropA (hWnd, c_szMapDropPageProp);
+	}
 
-	UpdateUI();
+	if (pfnPrev)
+		return CallWindowProc (pfnPrev, hWnd, uMsg, wParam, lParam);
+	return DefWindowProc (hWnd, uMsg, wParam, lParam);
+}
+
+static void AttachFolderDrop (HWND hWnd, CMapFilePage* pPage)
+{
+	if (!hWnd)
+		return;
+
+	if (!GetPropA (hWnd, c_szMapDropProcProp))
+	{
+		DragAcceptFiles (hWnd, TRUE);
+		ChangeWindowMessageFilterEx (hWnd, WM_DROPFILES, MSGFLT_ALLOW, nullptr);
+		ChangeWindowMessageFilterEx (hWnd, WM_COPYDATA, MSGFLT_ALLOW, nullptr);
+		ChangeWindowMessageFilterEx (hWnd, 0x0049, MSGFLT_ALLOW, nullptr);
+		WNDPROC pfnPrev = (WNDPROC) SetWindowLongPtr (hWnd, GWLP_WNDPROC, (LONG_PTR) MapFolderDropProc);
+		SetPropA (hWnd, c_szMapDropProcProp, (HANDLE) pfnPrev);
+		SetPropA (hWnd, c_szMapDropPageProp, (HANDLE) pPage);
+	}
+
+	for (HWND hChild = GetWindow (hWnd, GW_CHILD); hChild; hChild = GetWindow (hChild, GW_HWNDNEXT))
+		AttachFolderDrop (hChild, pPage);
+}
+
+void CMapFilePage::InstallFolderDrop (HWND hRoot)
+{
+	AttachFolderDrop (hRoot, this);
+}
+
+void CMapFilePage::HandleFolderDrop (HDROP hDrop)
+{
+	const UINT nCount = DragQueryFileA (hDrop, 0xFFFFFFFF, nullptr, 0);
+	char szPath[MAX_PATH];
+	bool bLoaded = false;
+	bool bTried = false;
+	bool bSawFolder = false;
+
+	for (UINT i = 0; i < nCount && !bLoaded; ++i)
+	{
+		if (DragQueryFileA (hDrop, i, szPath, MAX_PATH) == 0)
+			continue;
+
+		const DWORD dwAttr = GetFileAttributesA (szPath);
+		if (dwAttr == INVALID_FILE_ATTRIBUTES || (dwAttr & FILE_ATTRIBUTE_DIRECTORY) == 0)
+			continue;
+
+		bSawFolder = true;
+		if (!IsMapFolder (szPath))
+			continue;
+
+		char szFull[MAX_PATH];
+		char szCwd[MAX_PATH];
+		char szExpected[MAX_PATH];
+		char szExpectedFull[MAX_PATH];
+
+		if (!GetFullPathNameA (szPath, MAX_PATH, szFull, nullptr))
+			continue;
+		if (!_getcwd (szCwd, MAX_PATH))
+			continue;
+
+		const char* pszName = strrchr (szFull, '\\');
+		pszName = pszName ? pszName + 1 : szFull;
+
+		_snprintf (szExpected, sizeof (szExpected), "%s\\%s", szCwd, pszName);
+		if (!GetFullPathNameA (szExpected, MAX_PATH, szExpectedFull, nullptr))
+			continue;
+
+		if (_stricmp (szFull, szExpectedFull) != 0)
+		{
+			DragFinish (hDrop);
+			LogBoxf ("Drop the map folder from the editor data folder.\n%s", szExpectedFull);
+			return;
+		}
+
+		bTried = true;
+		bLoaded = LoadMapByFolderName (pszName);
+	}
+
+	DragFinish (hDrop);
+
+	if (!bLoaded && !bTried)
+	{
+		if (bSawFolder)
+			LogBox ("That folder is not a map. It needs MapProperty.txt.");
+		else
+			LogBox ("Drop a map folder.");
+	}
 }
 
 void CMapFilePage::OnSaveMap()
@@ -272,6 +421,34 @@ void CMapFilePage::OnCheckAutoSave()
 	pMapManagerAccessor->SetAutoSave (IsDlgButtonChecked (IDC_MAP_FILE_AUTO_SAVE) == BST_CHECKED);
 }
 
+void CMapFilePage::OnCloseMap()
+{
+	CWorldEditorApp * pApplication = (CWorldEditorApp*) AfxGetApp();
+	CMapManagerAccessor * pMapManagerAccessor = pApplication->GetMapManagerAccessor();
+	if (!pMapManagerAccessor || !pMapManagerAccessor->IsMapReady())
+		return;
+
+	if (MessageBox ("Close the current map?", NULL, MB_YESNO) != IDYES)
+		return;
+
+	const std::string strName = pMapManagerAccessor->GetMapOutdoorRef().GetName();
+	if (!pMapManagerAccessor->UnloadMap (strName))
+		return;
+
+	UpdateUI();
+}
+
+void CMapFilePage::OnCheckAutoBackup()
+{
+	CWorldEditorConfig::Instance().SetAutoBackup (IsDlgButtonChecked (IDC_MAP_FILE_AUTO_BACKUP) == BST_CHECKED);
+}
+
+void CMapFilePage::OnCheckDataEncryption()
+{
+	CheckDlgButton (IDC_MAP_FILE_DATA_ENCRYPTION, FALSE);
+	LogBox ("Data encryption is not available. Maps are saved with EncryptionSet 0.");
+}
+
 void CMapFilePage::OnSaveAsMap()
 {
 	CString cstrMap;
@@ -288,7 +465,7 @@ void CMapFilePage::OnSaveAsMap()
 
 void CMapFilePage::OnSaveCollisionData()
 {
-	DWORD dwFlag = OFN_ALLOWMULTISELECT | OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR;
+	DWORD dwFlag = OFN_ALLOWMULTISELECT | OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR | OFN_ENABLESIZING;
 	const char* c_szFilter = "Metin2 Collision Data File (*.mdc) |*.mdc|All Files (*.*)|*.*|";
 
 	CFileDialog FileOpener (FALSE, "Save", "", dwFlag, c_szFilter, this);
@@ -438,6 +615,21 @@ void CMapFilePage::OnCheckPatchGrid()
 	pScene->SetPatchGrid (IsDlgButtonChecked (IDC_CHECK_PATCH_GRID) != 0);
 }
 
+void CMapFilePage::OnCheckTree()
+{
+	CArea::ms_bTreeOut = IsDlgButtonChecked (IDC_CHECK_TREE) != 0;
+}
+
+void CMapFilePage::OnCheckEffect()
+{
+	CArea::ms_bEffectOut = IsDlgButtonChecked (IDC_CHECK_EFFECT) != 0;
+}
+
+void CMapFilePage::OnCheckAmbience()
+{
+	CArea::ms_bAmbienceOut = IsDlgButtonChecked (IDC_CHECK_AMBIENCE) != 0;
+}
+
 void CMapFilePage::OnCheckWater()
 {
 	// TODO: Add your control notification handler code here
@@ -468,7 +660,13 @@ void CMapFilePage::OnButtonSaveAtlas()
 		return;
 	}
 
-	pMapManagerAccessor->SaveAtlas();
+	CMainFrame * pFrame = (CMainFrame*) AfxGetMainWnd();
+	CWorldEditorDoc * pDocument = (CWorldEditorDoc*) pFrame->GetActiveDocument();
+	CSceneMap * pScene = pDocument->GetSceneMap();
+	if (pScene)
+		pScene->SaveAtlasAndMiniMaps();
+	else
+		pMapManagerAccessor->SaveAtlas();
 }
 
 void CMapFilePage::OnButtonChangeBasexy()
@@ -499,7 +697,7 @@ void CMapFilePage::OnButtonSelecteEnvironmentSet()
 		return;
 	}
 
-	DWORD dwFlag = OFN_NOCHANGEDIR;
+	DWORD dwFlag = OFN_NOCHANGEDIR | OFN_ENABLESIZING;
 	const char* c_szFilter = "Environment Files (*.msenv)|*.msenv|*.*|All Files (*.*)|";
 	CFileDialog FileOpener (TRUE, "Load", "", dwFlag, c_szFilter, this);
 	if (TRUE == FileOpener.DoModal())

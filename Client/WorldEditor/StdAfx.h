@@ -28,8 +28,6 @@
 #pragma warning(disable:4100)	// parameter 안쓰인거 경고 끄기
 #pragma warning(disable:4710)	// inline 이 안됐다고 워닝나오는거 끄기
 
-#include <IL/il.h>
-
 #include "../EterLib/StdAfx.h"
 #include "../EterBase/StdAfx.h"
 #include "../EterGrnLib/StdAfx.h"

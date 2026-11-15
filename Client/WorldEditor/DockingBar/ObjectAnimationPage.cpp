@@ -382,7 +382,7 @@ void CObjectAnimationPage::OnLoadAnimation()
 
 	CHECK_RETURN (!pObjectData->isModelThing(), "Load the model first");
 
-	DWORD dwFlag = OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR;
+	DWORD dwFlag = OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR | OFN_ENABLESIZING;
 	const char* c_szFilter = "Granny Animation Files (*.gr2)|*.gr2|*.*|All Files (*.*)|";
 	CFileDialog FileOpener (TRUE, "Load", "", dwFlag, c_szFilter, this);
 
@@ -461,7 +461,7 @@ void CObjectAnimationPage::OnPlay()
 
 void CObjectAnimationPage::OnLoadAnimationScript()
 {
-	DWORD dwFlag = OFN_NOCHANGEDIR;
+	DWORD dwFlag = OFN_NOCHANGEDIR | OFN_ENABLESIZING;
 	const char* c_szFilter = "Metin2 Animation Script Files (*.msa)|*.msa|*.*|All Files (*.*)|";
 	CFileDialog FileOpener (TRUE, "Load", "", dwFlag, c_szFilter, this);
 
@@ -520,7 +520,7 @@ void CObjectAnimationPage::OnSaveAnimationScript()
 		stScriptFileName += ".msa";
 	}
 
-	DWORD dwFlag = OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR;
+	DWORD dwFlag = OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR | OFN_ENABLESIZING;
 	const char* c_szFilter = "Metin2 Animation Script Files (*.msa)|*.msa|*.*|All Files (*.*)|";
 	CSaveFileDialog FileOpener (this, dwFlag, NULL, c_szFilter, NULL, stScriptFileName.c_str());
 

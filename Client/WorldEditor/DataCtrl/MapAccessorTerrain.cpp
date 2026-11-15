@@ -5,9 +5,20 @@
 #include "MapAccessorOutdoor.h"
 #include <fcntl.h>
 //#include <dxtlib.h>
-#include <il/il.h>
-#include <il/ilu.h>
+#include "ImageD3D.h"
 #include <math.h>
+
+static float BrushShapeDistance (DWORD dwBrushShape, float fdx, float fdy)
+{
+	if (CTerrainAccessor::BRUSH_SHAPE_SQUARE == dwBrushShape)
+		return max (fabsf (fdx), fabsf (fdy));
+	if (CTerrainAccessor::BRUSH_SHAPE_TRIANGLE == dwBrushShape)
+	{
+		const float kSqrt3 = 1.73205080757f;
+		return max (2.0f * fdy, max (kSqrt3 * fdx - fdy, -kSqrt3 * fdx - fdy));
+	}
+	return sqrtf (fdx * fdx + fdy * fdy);
+}
 
 //////////////////////////////////////////////////////////////////////////
 // CTerrainAccessor
@@ -108,7 +119,7 @@ void CTerrainAccessor::DrawTextureBrush (DWORD dwBrushShape,
 		return;
 	}
 
-	if (BRUSH_SHAPE_CIRCLE == dwBrushShape)
+	if (BRUSH_SHAPE_CIRCLE == dwBrushShape || BRUSH_SHAPE_TRIANGLE == dwBrushShape)
 	{
 		for (j = 0; j < max (2 * byBrushSize * HEIGHT_TILE_YRATIO, 1); j++)
 		{
@@ -123,7 +134,7 @@ void CTerrainAccessor::DrawTextureBrush (DWORD dwBrushShape,
 				float xf = (float) (x2) + 0.5f;
 				float yf = (float) (y2) + 0.5f;
 
-				dist = sqrtf ((xf - (float)cx) * (xf - (float)cx) + (yf - (float)cy) * (yf - (float)cy));
+				dist = BrushShapeDistance (dwBrushShape, xf - (float) cx, yf - (float) cy);
 
 				if (dist < max (byBrushSize * HEIGHT_TILE_XRATIO, 1))
 				{
@@ -246,7 +257,7 @@ void CTerrainAccessor::DrawAttrBrush (DWORD dwBrushShape,
 
 	if (bErase)
 	{
-		if (BRUSH_SHAPE_CIRCLE == dwBrushShape)
+		if (BRUSH_SHAPE_CIRCLE == dwBrushShape || BRUSH_SHAPE_TRIANGLE == dwBrushShape)
 		{
 			for (j = 0; j < max (2 * byBrushSize * fAttrHeightRatio, 1); ++j)
 			{
@@ -261,7 +272,7 @@ void CTerrainAccessor::DrawAttrBrush (DWORD dwBrushShape,
 					float xf = (float) (Left + i) + 0.5f;
 					float yf = (float) (Top + j) + 0.5f;
 
-					dist = sqrtf ((xf - (float)cx) * (xf - (float)cx) + (yf - (float)cy) * (yf - (float)cy));
+					dist = BrushShapeDistance (dwBrushShape, xf - (float) cx, yf - (float) cy);
 
 					if (dist < max (byBrushSize * fAttrHeightRatio, 1))
 					{
@@ -289,7 +300,7 @@ void CTerrainAccessor::DrawAttrBrush (DWORD dwBrushShape,
 	}
 	else
 	{
-		if (BRUSH_SHAPE_CIRCLE == dwBrushShape)
+		if (BRUSH_SHAPE_CIRCLE == dwBrushShape || BRUSH_SHAPE_TRIANGLE == dwBrushShape)
 		{
 			for (j = 0; j < max (2 * byBrushSize * fAttrHeightRatio, 1); ++j)
 			{
@@ -304,7 +315,7 @@ void CTerrainAccessor::DrawAttrBrush (DWORD dwBrushShape,
 					float xf = (float) (Left + i) + 0.5f;
 					float yf = (float) (Top + j) + 0.5f;
 
-					dist = sqrtf ((xf - (float)cx) * (xf - (float)cx) + (yf - (float)cy) * (yf - (float)cy));
+					dist = BrushShapeDistance (dwBrushShape, xf - (float) cx, yf - (float) cy);
 
 					if (dist < max (byBrushSize * fAttrHeightRatio, 1))
 					{
@@ -360,11 +371,11 @@ void CTerrainAccessor::DrawWaterBrush (DWORD dwBrushShape,
 
 	if (!bErase)
 	{
-		for (BYTE byi = 0; byi <= MAX_WATER_NUM; ++byi)
+		for (int i = 0; i <= MAX_WATER_NUM; ++i)
 		{
-			if (m_lWaterHeight[byi] == (long) wWaterHeight)
+			if (m_lWaterHeight[i] == (long) wWaterHeight)
 			{
-				byWaterID = byi;
+				byWaterID = (BYTE) i;
 				break;
 			}
 		}
@@ -372,11 +383,11 @@ void CTerrainAccessor::DrawWaterBrush (DWORD dwBrushShape,
 		if (0xFF == byWaterID)
 		{
 			BYTE byEmpty = 0xFF;
-			for (BYTE byi = 0; byi <= MAX_WATER_NUM; ++byi)
+			for (int i = 0; i <= MAX_WATER_NUM; ++i)
 			{
-				if (-1 == m_lWaterHeight[byi])
+				if (-1 == m_lWaterHeight[i])
 				{
-					byEmpty = byi;
+					byEmpty = (BYTE) i;
 					break;
 				}
 			}
@@ -398,7 +409,7 @@ void CTerrainAccessor::DrawWaterBrush (DWORD dwBrushShape,
 
 	if (bErase)
 	{
-		if (BRUSH_SHAPE_CIRCLE == dwBrushShape)
+		if (BRUSH_SHAPE_CIRCLE == dwBrushShape || BRUSH_SHAPE_TRIANGLE == dwBrushShape)
 		{
 			for (j = 0; j < 2 * byBrushSize; ++j)
 			{
@@ -413,7 +424,7 @@ void CTerrainAccessor::DrawWaterBrush (DWORD dwBrushShape,
 					float xf = (float) (Left + i) + 0.5f;
 					float yf = (float) (Top + j) + 0.5f;
 
-					dist = sqrtf ((xf - (float)cx) * (xf - (float)cx) + (yf - (float)cy) * (yf - (float)cy));
+					dist = BrushShapeDistance (dwBrushShape, xf - (float) cx, yf - (float) cy);
 
 					if (dist < byBrushSize)
 					{
@@ -469,7 +480,7 @@ void CTerrainAccessor::DrawWaterBrush (DWORD dwBrushShape,
 	}
 	else
 	{
-		if (BRUSH_SHAPE_CIRCLE == dwBrushShape)
+		if (BRUSH_SHAPE_CIRCLE == dwBrushShape || BRUSH_SHAPE_TRIANGLE == dwBrushShape)
 		{
 			for (j = 0; j < 2 * byBrushSize; ++j)
 			{
@@ -484,7 +495,7 @@ void CTerrainAccessor::DrawWaterBrush (DWORD dwBrushShape,
 					float xf = (float) (Left + i) + 0.5f;
 					float yf = (float) (Top + j) + 0.5f;
 
-					dist = sqrtf ((xf - (float)cx) * (xf - (float)cx) + (yf - (float)cy) * (yf - (float)cy));
+					dist = BrushShapeDistance (dwBrushShape, xf - (float) cx, yf - (float) cy);
 
 					if (dist < byBrushSize)
 					{
@@ -540,11 +551,7 @@ namespace
 
 	float HeightBrushDistance (DWORD dwBrushShape, float fdx, float fdy)
 	{
-		if (CTerrainAccessor::BRUSH_SHAPE_SQUARE == dwBrushShape)
-		{
-			return max (fabsf (fdx), fabsf (fdy));
-		}
-		return sqrtf (fdx * fdx + fdy * fdy);
+		return BrushShapeDistance (dwBrushShape, fdx, fdy);
 	}
 
 	long HeightBrushDelta (float fDist, BYTE byBrushSize, BYTE byBrushStrength)
@@ -800,7 +807,7 @@ void CTerrainAccessor::FlatTerrain (DWORD dwBrushShape, long x, long y, BYTE byB
 		}
 	}
 
-	if (BRUSH_SHAPE_CIRCLE == dwBrushShape)
+	if (BRUSH_SHAPE_CIRCLE == dwBrushShape || BRUSH_SHAPE_TRIANGLE == dwBrushShape)
 	{
 		for (j = 0; j < 2 * byBrushSize; j++)
 		{
@@ -814,7 +821,7 @@ void CTerrainAccessor::FlatTerrain (DWORD dwBrushShape, long x, long y, BYTE byB
 					continue;
 				}
 
-				dist = sqrtf (((float)x2 - (float)cx) * ((float)x2 - (float)cx) + ((float)y2 - (float)cy) * ((float)y2 - (float)cy));
+				dist = BrushShapeDistance (dwBrushShape, (float) x2 - (float) cx, (float) y2 - (float) cy);
 
 				if (dist < byBrushSize)
 				{
@@ -892,7 +899,7 @@ void CTerrainAccessor::NoiseTerrain (DWORD dwBrushShape, long x, long y, BYTE by
 	m_pOwnerOutdoorMap->GetTerrainNumFromCoord (m_wX, m_wY, &myTerrainNum);
 	CTerrainAccessor * pTerrainAccessor = NULL;
 
-	if (BRUSH_SHAPE_CIRCLE == dwBrushShape)
+	if (BRUSH_SHAPE_CIRCLE == dwBrushShape || BRUSH_SHAPE_TRIANGLE == dwBrushShape)
 	{
 		for (j = 0; j < 2 * byBrushSize; j++)
 		{
@@ -907,7 +914,7 @@ void CTerrainAccessor::NoiseTerrain (DWORD dwBrushShape, long x, long y, BYTE by
 				}
 
 				/* Find distance from center of brush */
-				dist = sqrtf (((float) x2 - (float) cx) * ((float)x2 - (float)cx) + ((float)y2 - (float)cy) * ((float)y2 - (float)cy));
+				dist = BrushShapeDistance (dwBrushShape, (float) x2 - (float) cx, (float) y2 - (float) cy);
 
 				if (dist < byBrushSize)
 				{
@@ -984,7 +991,7 @@ void CTerrainAccessor::SmoothTerrain (DWORD dwBrushShape, long x, long y, BYTE b
 	m_pOwnerOutdoorMap->GetTerrainNumFromCoord (m_wX, m_wY, &myTerrainNum);
 	CTerrainAccessor * pTerrainAccessor = NULL;
 
-	if (BRUSH_SHAPE_CIRCLE == dwBrushShape)
+	if (BRUSH_SHAPE_CIRCLE == dwBrushShape || BRUSH_SHAPE_TRIANGLE == dwBrushShape)
 	{
 		for (j = 0; j < 2 * byBrushSize; j++)
 		{
@@ -1005,7 +1012,7 @@ void CTerrainAccessor::SmoothTerrain (DWORD dwBrushShape, long x, long y, BYTE b
 				yt = y2 - 1;
 				yb = y2 + 1;
 
-				dist = sqrtf (((float)x2 - (float)cx) * ((float)x2 - (float)cx) + ((float)y2 - (float)cy) * ((float)y2 - (float)cy));
+				dist = BrushShapeDistance (dwBrushShape, (float) x2 - (float) cx, (float) y2 - (float) cy);
 
 				if (dist < byBrushSize)
 				{
@@ -1389,6 +1396,27 @@ bool CTerrainAccessor::SaveWaterMap (const std::string & c_rstrMapName)
 	return true;
 }
 
+bool CTerrainAccessor::SetWaterHeightAll (long lHeight)
+{
+	bool bChanged = false;
+	for (int i = 0; i <= MAX_WATER_NUM; ++i)
+	{
+		if (m_lWaterHeight[i] == -1)
+			continue;
+		m_lWaterHeight[i] = lHeight;
+		bChanged = true;
+	}
+
+	if (!bChanged)
+		return false;
+
+	RecalculateWaterMap();
+	const int iPatchCount = PATCH_XCOUNT * PATCH_YCOUNT;
+	for (int i = 0; i < iPatchCount; ++i)
+		m_TerrainPatchList[i].NeedUpdate (true);
+	return true;
+}
+
 static HFILE gs_fileout = NULL;
 
 void WriteDTXnFile (DWORD count, void* buffer)
@@ -1407,6 +1435,69 @@ void ReadDTXnFile (DWORD count, void* buffer)
 	return;
 }
 
+bool CTerrainAccessor::SaveTextureToImageFile (LPDIRECT3DTEXTURE9 pTexture, const char * c_szFileName, D3DXIMAGE_FILEFORMAT eFormat)
+{
+	if (!pTexture || !c_szFileName || !c_szFileName[0])
+		return false;
+
+	D3DSURFACE_DESC kDesc;
+	if (FAILED (pTexture->GetLevelDesc (0, &kDesc)))
+		return false;
+
+	LPDIRECT3DSURFACE9 pSrc = NULL;
+	if (FAILED (pTexture->GetSurfaceLevel (0, &pSrc)) || !pSrc)
+		return false;
+
+	LPDIRECT3DDEVICE9 pDevice = NULL;
+	pTexture->GetDevice (&pDevice);
+	if (!pDevice)
+	{
+		pSrc->Release();
+		return false;
+	}
+
+	LPDIRECT3DSURFACE9 pSystem = NULL;
+	HRESULT hr = pDevice->CreateOffscreenPlainSurface (kDesc.Width, kDesc.Height, kDesc.Format, D3DPOOL_SYSTEMMEM, &pSystem, NULL);
+	if (FAILED (hr))
+	{
+		Tracef ("SaveShadowFromD3DTexture9: CreateOffscreenPlainSurface full failed (hr=0x%08X)\n", hr);
+		pSrc->Release();
+		pDevice->Release();
+		return false;
+	}
+
+	hr = pDevice->GetRenderTargetData (pSrc, pSystem);
+	if (FAILED (hr))
+	{
+		Tracef ("SaveShadowFromD3DTexture9: GetRenderTargetData failed (hr=0x%08X)\n", hr);
+		LPDIRECT3DSURFACE9 pConverted = NULL;
+		if (SUCCEEDED (pDevice->CreateOffscreenPlainSurface (kDesc.Width, kDesc.Height, D3DFMT_A8R8G8B8, D3DPOOL_SYSTEMMEM, &pConverted, NULL)))
+		{
+			hr = D3DXLoadSurfaceFromSurface (pConverted, NULL, NULL, pSrc, NULL, NULL, D3DX_FILTER_NONE, 0);
+			pSystem->Release();
+			pSystem = pConverted;
+		}
+	}
+
+	pSrc->Release();
+	pDevice->Release();
+	if (FAILED (hr) || !pSystem)
+	{
+		if (pSystem)
+			pSystem->Release();
+		return false;
+	}
+
+	hr = D3DXSaveSurfaceToFile (c_szFileName, eFormat, pSystem, NULL, NULL);
+	pSystem->Release();
+	if (FAILED (hr))
+	{
+		Tracef ("SaveMiniMapFromD3DTexture9: D3DXSaveSurfaceToFile DDS failed (hr=0x%08X)\n", hr);
+		return false;
+	}
+	return true;
+}
+
 bool CTerrainAccessor::SaveShadowFromD3DTexture9 (const std::string & c_rstrMapName, LPDIRECT3DTEXTURE9 lpShadowTexture)
 {
 	char szFileName[256];
@@ -1423,111 +1514,116 @@ bool CTerrainAccessor::SaveShadowFromD3DTexture9 (const std::string & c_rstrMapN
 	DeleteFile (szFileName);
 
 	// BMP로 저장
+	sprintf (szFileName, "%s\\%06u\\shadowmap.raw", c_rstrMapName.c_str(), ulID);
+	{
+		D3DSURFACE_DESC kDesc;
+		LPDIRECT3DSURFACE9 pSrc = NULL;
+		LPDIRECT3DDEVICE9 pDevice = NULL;
+		LPDIRECT3DSURFACE9 pSystem = NULL;
+		bool bWrote = false;
+		if (lpShadowTexture &&
+			SUCCEEDED (lpShadowTexture->GetLevelDesc (0, &kDesc)) &&
+			SUCCEEDED (lpShadowTexture->GetSurfaceLevel (0, &pSrc)) && pSrc &&
+			SUCCEEDED (lpShadowTexture->GetDevice (&pDevice)) && pDevice &&
+			SUCCEEDED (pDevice->CreateOffscreenPlainSurface (kDesc.Width, kDesc.Height, D3DFMT_A8R8G8B8, D3DPOOL_SYSTEMMEM, &pSystem, NULL)) &&
+			pSystem &&
+			SUCCEEDED (D3DXLoadSurfaceFromSurface (pSystem, NULL, NULL, pSrc, NULL, NULL, D3DX_FILTER_POINT, 0)))
+		{
+			D3DLOCKED_RECT kLock;
+			if (SUCCEEDED (pSystem->LockRect (&kLock, NULL, D3DLOCK_READONLY)) && kLock.pBits)
+			{
+				FILE * fpRaw = fopen (szFileName, "wb");
+				if (fpRaw)
+				{
+					const int iDst = 256;
+					for (int y = 0; y < iDst; ++y)
+					{
+						const int sy = (kDesc.Height > 1) ? (y * (int) kDesc.Height / iDst) : 0;
+						const DWORD * pRow = (const DWORD*) ((const BYTE*) kLock.pBits + sy * kLock.Pitch);
+						for (int x = 0; x < iDst; ++x)
+						{
+							const int sx = (kDesc.Width > 1) ? (x * (int) kDesc.Width / iDst) : 0;
+							const DWORD dwColor = pRow[sx];
+							const BYTE b = (BYTE) (dwColor & 0xff);
+							const BYTE g = (BYTE) ((dwColor >> 8) & 0xff);
+							const BYTE r = (BYTE) ((dwColor >> 16) & 0xff);
+							const WORD wColor = ((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3);
+							fwrite (&wColor, sizeof (WORD), 1, fpRaw);
+						}
+					}
+					fclose (fpRaw);
+					bWrote = true;
+				}
+				pSystem->UnlockRect();
+			}
+		}
+		if (pSystem)
+			pSystem->Release();
+		if (pSrc)
+			pSrc->Release();
+		if (pDevice)
+			pDevice->Release();
+		if (bWrote)
+			return true;
+	}
+
 	sprintf (szFileName, "%s\\%06u\\shadowmap.bmp", c_rstrMapName.c_str(), ulID);
 	D3DXSaveTextureToFile (szFileName, D3DXIFF_BMP, lpShadowTexture, NULL);
 
 	{
-		//////////////////////////////////////////////////////////////////////////
-		// 사이즈 줄여 BMP로 변환
-		ilInit();
-		ilEnable (IL_FILE_OVERWRITE);
-
-		ILuint image;
-		ilGenImages (1, &image);
-		ilBindImage (image);
-
-		ilLoadImage (szFileName);
-		iluScale (256, 256, 1);
-
-		// 버그가 있는지.. RAW 데이터로 저장하면 용량이 너무 커져서
-		// 저장 했다 다시 읽는다.. -_- 이러면 됨..
-		ilSaveImage (szFileName);
-		ilLoadImage (szFileName);
-
-		ilConvertImage (IL_RGBA, IL_BYTE);
-		iluFlipImage();	// BMP는 이미지가 거꾸로 되어 있다.
-
-		// Raw Data (Shadow Map) 저장
-		ILubyte * pRawData = ilGetData();
-
-		#ifdef SHADOWMAP_TO_TGA
-		sprintf (szFileName, "%s\\%06u\\shadowmap.tga", c_rstrMapName.c_str(), ulID);
-		#else
-		sprintf (szFileName, "%s\\%06u\\shadowmap.raw", c_rstrMapName.c_str(), ulID);
-		#endif
-		FILE * fp = fopen (szFileName, "w");
-
-		if (fp)
+		LPDIRECT3DDEVICE9 pDevice = NULL;
+		LPDIRECT3DSURFACE9 pScaled = NULL;
+		if (lpShadowTexture && SUCCEEDED (lpShadowTexture->GetDevice (&pDevice)) && pDevice &&
+			ImageCreateSurface (pDevice, 256, 256, &pScaled) &&
+			SUCCEEDED (D3DXLoadSurfaceFromFile (pScaled, NULL, NULL, szFileName, NULL, D3DX_FILTER_TRIANGLE, 0, NULL)))
 		{
-			#ifdef SHADOWMAP_TO_TGA
-			TGA_HEADER header;
-
-			memset (&header, 0, sizeof (TGA_HEADER));
-
-			header.imgType		= 2;
-			header.width		= ilGetInteger (IL_IMAGE_WIDTH);
-			header.height		= ilGetInteger (IL_IMAGE_WIDTH);
-			header.colorBits	= 16;
-			header.desc			= IMAGEDESC_TOPLEFT;
-
-			fwrite (&header, sizeof (TGA_HEADER), 1, fp);
-			#endif
-			BYTE * pbData = (BYTE*) pRawData;
-
-			for (int h = 0; h < ilGetInteger (IL_IMAGE_HEIGHT); ++h)
+			D3DLOCKED_RECT kLock;
+			if (SUCCEEDED (pScaled->LockRect (&kLock, NULL, D3DLOCK_READONLY)) && kLock.pBits)
 			{
-				for (int w = 0; w < ilGetInteger (IL_IMAGE_WIDTH); ++w)
+#ifdef SHADOWMAP_TO_TGA
+				sprintf (szFileName, "%s\\%06u\\shadowmap.tga", c_rstrMapName.c_str(), ulID);
+#else
+				sprintf (szFileName, "%s\\%06u\\shadowmap.raw", c_rstrMapName.c_str(), ulID);
+#endif
+				FILE * fp = fopen (szFileName, "wb");
+				if (fp)
 				{
-					BYTE r = * (pbData++);
-					BYTE g = * (pbData++);
-					BYTE b = * (pbData++);
-					BYTE a = * (pbData++);
-
-					#ifdef SHADOWMAP_TO_TGA
-					// Targa = B5 G5 R5
-					WORD wColor = ((b >> 3) << 10) | ((g >> 3) << 5) | (r >> 3);
-					#else
-					// Raw565 = R5 G6 B5
-					WORD wColor = ((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3);
-					#endif
-					fwrite (&wColor, sizeof (WORD), 1, fp);
+#ifdef SHADOWMAP_TO_TGA
+					TGA_HEADER header;
+					memset (&header, 0, sizeof (TGA_HEADER));
+					header.imgType = 2;
+					header.width = 256;
+					header.height = 256;
+					header.colorBits = 16;
+					header.desc = IMAGEDESC_TOPLEFT;
+					fwrite (&header, sizeof (TGA_HEADER), 1, fp);
+#endif
+					for (int h = 0; h < 256; ++h)
+					{
+						const DWORD * pRow = (const DWORD *) ((const BYTE *) kLock.pBits + h * kLock.Pitch);
+						for (int w = 0; w < 256; ++w)
+						{
+							const DWORD dwColor = pRow[w];
+							const BYTE b = (BYTE) (dwColor & 0xff);
+							const BYTE g = (BYTE) ((dwColor >> 8) & 0xff);
+							const BYTE r = (BYTE) ((dwColor >> 16) & 0xff);
+#ifdef SHADOWMAP_TO_TGA
+							WORD wColor = ((b >> 3) << 10) | ((g >> 3) << 5) | (r >> 3);
+#else
+							WORD wColor = ((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3);
+#endif
+							fwrite (&wColor, sizeof (WORD), 1, fp);
+						}
+					}
+					fclose (fp);
 				}
+				pScaled->UnlockRect();
 			}
-
-			fclose (fp);
 		}
-
-		//////////////////////////////////////////////////////////////////////////
-		// DDS (DXT1, Mipmap)로도 저장
-		/*CompressionOptions DXT1Option;
-		memset(&DXT1Option, 0, sizeof(DXT1Option));
-
-		DXT1Option.bMipMapsInImage = false;
-		DXT1Option.MIPFilterType = dMIPFilterBox;
-		DXT1Option.MipMapType = dGenerateMipMaps;
-		DXT1Option.TextureType = dTextureType2D;
-		DXT1Option.TextureFormat = dDXT1;
-		DXT1Option.bSwapRGB = true;
-
-		char szDDSFileName[MAX_PATH + 1];
-		_snprintf(szDDSFileName, MAX_PATH, "%s\\%06u\\shadowmap.dds", c_rstrMapName.c_str(), ulID);
-
-		gs_fileout = _open(szDDSFileName, _O_WRONLY | _O_BINARY | _O_CREAT | _O_TRUNC,  _S_IWRITE);
-
-		if (gs_fileout != -1)
-		{
-			nvDXTcompress((unsigned char *) pRawData,
-							ilGetInteger(IL_IMAGE_WIDTH),
-							ilGetInteger(IL_IMAGE_HEIGHT),
-							ilGetInteger(IL_IMAGE_WIDTH) * ilGetInteger(IL_IMAGE_BYTES_PER_PIXEL),
-							&DXT1Option,
-							4,
-							0);
-			_close(gs_fileout);
-		}
-		// End of DXT Routine
-		*/
-		ilDeleteImages (1, &image);
+		if (pScaled)
+			pScaled->Release();
+		if (pDevice)
+			pDevice->Release();
 	}
 
 	// BMP는 임시 파일이므로 지운다.
@@ -1543,29 +1639,16 @@ bool CTerrainAccessor::SaveMiniMapFromD3DTexture9 (const std::string & c_rstrMap
 	DWORD ulID = (DWORD) (m_wX) * 1000L + (DWORD) (m_wY);
 
 	// 그림자 관련 파일들을 시작
+	sprintf (szFileName, "%s\\%06u\\minimap.dds", c_rstrMapName.c_str(), ulID);
+	DeleteFile (szFileName);
+	if (SaveTextureToImageFile (lpMiniMapTexture, szFileName, D3DXIFF_DDS))
+		return true;
+
 	sprintf (szFileName, "%s\\%06u\\minimap.bmp", c_rstrMapName.c_str(), ulID);
 	DeleteFile (szFileName);
 	D3DXSaveTextureToFile (szFileName, D3DXIFF_BMP, lpMiniMapTexture, NULL);
 
 	{
-		//////////////////////////////////////////////////////////////////////////
-		// 사이즈 줄여 BMP로 변환
-		ilInit();
-		ilEnable (IL_FILE_OVERWRITE);
-
-		ILuint image;
-		ilGenImages (1, &image);
-		ilBindImage (image);
-
-		ilLoadImage (szFileName);
-
-		ilConvertImage (IL_RGBA, IL_BYTE);
-		iluFlipImage();	// BMP는 이미지가 거꾸로 되어 있다.
-
-		// Raw Data (Shadow Map) 저장
-		ILubyte * pRawData = ilGetData();
-
-
 		char szDDSFileName[MAX_PATH + 1];
 		_snprintf (szDDSFileName, MAX_PATH, "%s\\%06u\\minimap.dds", c_rstrMapName.c_str(), ulID);
 
@@ -1615,37 +1698,6 @@ bool CTerrainAccessor::SaveMiniMapFromD3DTexture9 (const std::string & c_rstrMap
 		{
 			D3DXSaveTextureToFile (szDDSFileName, D3DXIFF_DDS, lpMiniMapTexture, NULL);
 		}
-
-		//////////////////////////////////////////////////////////////////////////
-		// DDS (DXT1, Mipmap)로 저장
-		/*CompressionOptions DXT1Option;
-
-		DXT1Option.bMipMapsInImage = false;
-		DXT1Option.MIPFilterType = dMIPFilterPoint;
-		DXT1Option.MipMapType = dNoMipMaps;
-		DXT1Option.TextureType = dTextureType2D;
-		DXT1Option.TextureFormat = dDXT1;
-		DXT1Option.bSwapRGB = true;
-
-		char szDDSFileName[MAX_PATH + 1];
-		_snprintf(szDDSFileName, MAX_PATH, "%s\\%06u\\minimap.dds", c_rstrMapName.c_str(), ulID);
-
-		gs_fileout = _open(szDDSFileName, _O_WRONLY | _O_BINARY | _O_CREAT | _O_TRUNC,  _S_IWRITE);
-
-		if (gs_fileout != -1)
-		{
-			nvDXTcompress((unsigned char *) pRawData,
-							ilGetInteger(IL_IMAGE_WIDTH),
-							ilGetInteger(IL_IMAGE_HEIGHT),
-							ilGetInteger(IL_IMAGE_WIDTH) * ilGetInteger(IL_IMAGE_BYTES_PER_PIXEL),
-							&DXT1Option,
-							4,
-							0);
-			_close(gs_fileout);
-		}
-		// End of DXT Routine*/
-
-		ilDeleteImages (1, &image);
 	}
 
 	// BMP는 임시 파일이므로 지운다.
@@ -1742,6 +1794,69 @@ void CTerrainAccessor::RAW_UpdateAttrSplat()
 	RAW_GenerateAttrSplat();
 }
 
+static DWORD GetAttrColor (BYTE byAttrFlags)
+{
+	if (!byAttrFlags)
+		return 0;
+	if (!CWorldEditorConfig::Instance().EnableMapAttrColored())
+		return 0x60FFFFFF;
+
+	int iBlue = (byAttrFlags & 1) ? 0x3C : 0;
+	int iGreen = iBlue;
+	int iRed = (byAttrFlags & 1) ? 0xC8 : 0;
+
+	if (byAttrFlags & 2)
+	{
+		iRed += 60;
+		iGreen = iBlue + 80;
+		iBlue += 220;
+	}
+	if (byAttrFlags & 4)
+	{
+		iRed += 60;
+		iGreen += 200;
+		iBlue += 60;
+	}
+	if (byAttrFlags & 8)
+	{
+		iRed += 200;
+		iGreen += 200;
+		iBlue += 40;
+	}
+	if (byAttrFlags & 0x10)
+	{
+		iRed += 200;
+		iGreen += 60;
+		iBlue += 200;
+	}
+	if (byAttrFlags & 0x20)
+	{
+		iRed += 60;
+		iGreen += 200;
+		iBlue += 200;
+	}
+	if (byAttrFlags & 0x40)
+	{
+		iRed += 220;
+		iGreen += 150;
+		iBlue += 40;
+	}
+	if (byAttrFlags & 0x80)
+	{
+		iRed += 150;
+		iGreen += 100;
+		iBlue += 220;
+	}
+
+	if (iRed > 255)
+		iRed = 255;
+	if (iGreen > 255)
+		iGreen = 255;
+	if (iBlue > 255)
+		iBlue = 255;
+	return (0x60u << 24) | ((DWORD) iRed << 16) | ((DWORD) iGreen << 8) | (DWORD) iBlue;
+}
+
 void CTerrainAccessor::RAW_GenerateAttrSplat()
 {
 	if (!m_RAWAttrSplatPatch.m_bNeedsUpdate)
@@ -1750,8 +1865,6 @@ void CTerrainAccessor::RAW_GenerateAttrSplat()
 	}
 
 	m_RAWAttrSplatPatch.m_bNeedsUpdate = false;
-
-	BYTE abyAlphaMap[ATTRMAP_XSIZE * ATTRMAP_YSIZE];
 
 	CWorldEditorApp * pApplication = (CWorldEditorApp*)AfxGetApp();
 	CMapManagerAccessor * pMapManagerAccessor = pApplication->GetMapManagerAccessor();
@@ -1774,43 +1887,34 @@ void CTerrainAccessor::RAW_GenerateAttrSplat()
 		}
 		rAttrSplat.pd3dTexture = m_lpAttrTexture = NULL;
 
-		BYTE * aptr = abyAlphaMap;
-
-		for (long y = 0; y < ATTRMAP_YSIZE; ++y)
-		{
-			for (long x = 0; x < ATTRMAP_XSIZE; ++x)
-			{
-				if (isAttrOn (x, y, bySelectedAttrFlag))
-				{
-					*aptr = 0x60;
-				}
-				else
-				{
-					*aptr = 0x00;
-				}
-
-				++aptr;
-			}
-		}
 		D3DLOCKED_RECT  d3dlr;
 
-		HRESULT hr;
-		do
+		HRESULT hr = ms_lpd3dDevice->CreateTexture (ATTRMAP_XSIZE, ATTRMAP_YSIZE, 1, D3DUSAGE_DYNAMIC, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &m_lpAttrTexture, nullptr);
+		if (FAILED (hr) || !m_lpAttrTexture)
 		{
-			hr = ms_lpd3dDevice->CreateTexture (ATTRMAP_XSIZE, ATTRMAP_YSIZE, 1, D3DUSAGE_DYNAMIC, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &m_lpAttrTexture, nullptr);
+			m_RAWAttrSplatPatch.m_bNeedsUpdate = true;
+			rAttrSplat.NeedsUpdate = 1;
+			return;
 		}
-		while (FAILED (hr));
-		do
+		hr = m_lpAttrTexture->LockRect (0, &d3dlr, 0, 0);
+		if (FAILED (hr) || !d3dlr.pBits)
 		{
-			hr = m_lpAttrTexture->LockRect (0, &d3dlr, 0, 0);
+			m_lpAttrTexture->Release();
+			m_lpAttrTexture = NULL;
+			m_RAWAttrSplatPatch.m_bNeedsUpdate = true;
+			rAttrSplat.NeedsUpdate = 1;
+			return;
 		}
-		while (FAILED (hr));
-		PutImage32 (abyAlphaMap, (BYTE*) d3dlr.pBits, ATTRMAP_XSIZE, d3dlr.Pitch, ATTRMAP_XSIZE, ATTRMAP_YSIZE);
-		do
+		for (long y = 0; y < ATTRMAP_YSIZE; ++y)
 		{
-			hr = m_lpAttrTexture->UnlockRect (0);
+			DWORD * pRow = (DWORD*) ((BYTE*) d3dlr.pBits + y * d3dlr.Pitch);
+			for (long x = 0; x < ATTRMAP_XSIZE; ++x)
+			{
+				const BYTE byAttr = m_abyAttrMap[y * ATTRMAP_XSIZE + x];
+				pRow[x] = GetAttrColor (bySelectedAttrFlag & byAttr);
+			}
 		}
-		while (FAILED (hr));
+		m_lpAttrTexture->UnlockRect (0);
 		rAttrSplat.pd3dTexture = m_lpAttrTexture;
 	}
 }

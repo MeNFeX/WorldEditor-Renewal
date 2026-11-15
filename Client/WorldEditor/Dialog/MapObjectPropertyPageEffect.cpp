@@ -158,7 +158,7 @@ void CMapObjectPropertyPageEffect::OnCancel()
 
 void CMapObjectPropertyPageEffect::OnLoadEffectFile()
 {
-	DWORD dwFlag = OFN_ALLOWMULTISELECT | OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR;
+	DWORD dwFlag = OFN_ALLOWMULTISELECT | OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR | OFN_ENABLESIZING;
 	const char* c_szFilter = "Effect File (*.mse) |*.mse|All Files (*.*)|*.*|";
 
 	CFileDialog FileOpener (TRUE, "Load", "", dwFlag, c_szFilter, this);

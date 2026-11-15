@@ -40,6 +40,13 @@ class CGrannyModel : public CReferenceObject
 
 		LPDIRECT3DVERTEXBUFFER9 GetPNTD3DVertexBuffer() const;
 		LPDIRECT3DINDEXBUFFER9 GetD3DIndexBuffer() const;
+		int GetPNTVertexStride() const
+		{
+			if (m_dwFvF == (D3DFVF_XYZ | D3DFVF_NORMAL | D3DFVF_TEX1 | D3DFVF_TEX2))
+				return (int) sizeof (TPNT2Vertex);
+			return (int) sizeof (TPNTVertex);
+		}
+		int GetIndexStride() const { return m_indexStride; }
 
 		const CGrannyModel::TMeshNode*  GetMeshNodeList(CGrannyMesh::EType eMeshType, CGrannyMaterial::EType eMtrlType) const;
 
@@ -74,6 +81,7 @@ class CGrannyModel : public CReferenceObject
 		int						m_rigidVtxCount;
 		int						m_vtxCount;
 		int						m_idxCount;
+		int						m_indexStride;
 
 		int						m_meshNodeSize;
 		int						m_meshNodeCapacity;

@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <shellapi.h>
 #include "ViewportManager.h"
 #include "Dialog/DlgPerspective.h"
 
@@ -97,6 +98,7 @@ class CWorldEditorView : public CView
 		afx_msg void OnSysKeyUp (UINT nChar, UINT nRepCnt, UINT nFlags);
 		afx_msg void OnSize (UINT nType, int cx, int cy);
 		afx_msg BOOL OnSetCursor (CWnd* pWnd, UINT nHitTest, UINT message);
+		afx_msg void OnDropFiles (HDROP hDropInfo);
 		//}}AFX_MSG
 		DECLARE_MESSAGE_MAP()
 

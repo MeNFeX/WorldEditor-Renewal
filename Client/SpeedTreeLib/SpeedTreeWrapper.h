@@ -122,6 +122,13 @@ public:
 	void                        RenderFronds(void) const;
 	void						RenderLeaves(void) const;
 	void						RenderBillboards(void) const;
+	void						ResetCpuLeafUpdates(void) const;
+#ifdef WORLD_EDITOR
+	void						SetEditorInCamera(bool bInCamera) { m_bEditorInCamera = bInCamera; }
+	bool						IsEditorInCamera() const { return m_bEditorInCamera; }
+	void						BeginEditorGeometry(int nPass) const;
+	bool						ConsumeEditorGeometry(int nPass) const;
+#endif
 
 	// instancing
 	CSpeedTreeWrapper **		GetInstances(unsigned int& nCount);
@@ -186,6 +193,10 @@ private:
 	// tree properties
 	float							m_afPos[3];						// tree position
 	float							m_afBoundingBox[6];				// tree bounding box
+#ifdef WORLD_EDITOR
+	bool							m_bEditorInCamera;
+	mutable bool					m_abEditorGeometryReady[4];
+#endif
 
 	// materials
 	CSpeedTreeMaterial				m_cBranchMaterial;				// branch material

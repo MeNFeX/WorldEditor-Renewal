@@ -2,9 +2,8 @@
 #include "MapManagerAccessor.h"
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <il/il.h>
-#include <il/ilu.h>
 //#include <dxtlib.h>
+#include "ImageD3D.h"
 
 ////////////////////////////////
 // Test Code
@@ -18,6 +17,7 @@
 #include "MapAccessorTerrain.h"
 #include "NonPlayerCharacterInfo.h"
 #include "../Util.h"
+#include "../../EterLib/EditorFrameLog.h"
 #include <filesystem>
 
 ////////////////////////////////
@@ -64,6 +64,10 @@ void CMapManagerAccessor::UpdateAutoSave()
 	SYSTEMTIME kTime;
 	::GetLocalTime (&kTime);
 	Tracef ("[%02d:%02d:%02d] %s\n", kTime.wHour, kTime.wMinute, kTime.wSecond, "Auto-Save Successful.");
+
+	CMainFrame * pFrame = (CMainFrame *) AfxGetMainWnd();
+	if (pFrame)
+		pFrame->SetAutoSaveStatus ("Auto-Save Successful.");
 }
 
 void CMapManagerAccessor::Initialize()
@@ -79,6 +83,36 @@ void CMapManagerAccessor::Destroy()
 		delete m_pHeightObserver;
 		m_pHeightObserver = NULL;
 	}
+}
+
+void CMapManagerAccessor::TrimMemory()
+{
+	if (ms_lpd3dDevice)
+		ms_lpd3dDevice->EvictManagedResources();
+	SetProcessWorkingSetSize (GetCurrentProcess(), (SIZE_T) -1, (SIZE_T) -1);
+}
+
+bool CMapManagerAccessor::GetTerrainCount (short * psCountX, short * psCountY)
+{
+	if (!psCountX || !psCountY || !IsMapReady() || !m_pMapAccessor)
+		return false;
+	m_pMapAccessor->GetTerrainCount (psCountX, psCountY);
+	return true;
+}
+
+bool CMapManagerAccessor::GetBaseXY (DWORD * pdwX, DWORD * pdwY)
+{
+	if (!pdwX || !pdwY || !IsMapReady() || !m_pMapAccessor)
+		return false;
+	m_pMapAccessor->GetBaseXY (pdwX, pdwY);
+	return true;
+}
+
+std::string CMapManagerAccessor::GetEnvironmentDataName()
+{
+	if (!IsMapReady() || !m_pMapAccessor)
+		return std::string();
+	return m_pMapAccessor->GetEnvironmentDataName();
 }
 
 void CMapManagerAccessor::DestroyShadowTexture()
@@ -217,11 +251,6 @@ void CMapManagerAccessor::UpdateEditing()
 		if (m_bHeightEditingOn)
 		{
 			EditTerrain();
-
-			// 고쳐야 함... 심리스 되면서 EditX, EditY 만으로는 해결 안됨..
-			RefreshObjectHeight (m_v3EditingCursorPosition.x,
-								 m_v3EditingCursorPosition.y,
-								 float (m_byBrushSize) * CTerrainImpl::CELLSCALE);
 		}
 		else if (m_bTextureEditingOn)
 		{
@@ -388,6 +417,33 @@ void CMapManagerAccessor::SetMaxBrushStrength (unsigned char ucMaxBrushStrength)
 void CMapManagerAccessor::EditTerrain()
 {
 	m_pMapAccessor->DrawHeightBrush (m_dwBrushShape, m_dwBrushType, m_wEditTerrainNumX, m_wEditTerrainNumY, m_ixEdit, m_iyEdit, m_byBrushSize, m_byBrushStrength);
+}
+
+void CMapManagerAccessor::DrawHeightBrush (float fX, float fY, DWORD dwBrushShape, DWORD dwBrushType, BYTE byBrushSize, BYTE byBrushStrength, bool bRefreshObjectHeight)
+{
+	if (!IsMapReady() || !m_pMapAccessor)
+		return;
+	if (fX < 0.0f || fY < 0.0f)
+		return;
+
+	const long lCellX = (long) (fX / CTerrainImpl::CELLSCALE_IN_METER);
+	const long lCellY = (long) (fY / CTerrainImpl::CELLSCALE_IN_METER);
+	if (lCellX < 0 || lCellY < 0)
+		return;
+
+	const WORD wTerrainNumX = (WORD) (lCellX / CTerrainImpl::XSIZE);
+	const WORD wTerrainNumY = (WORD) (lCellY / CTerrainImpl::YSIZE);
+	m_pMapAccessor->DrawHeightBrush (dwBrushShape, dwBrushType, wTerrainNumX, wTerrainNumY, lCellX % CTerrainImpl::XSIZE, lCellY % CTerrainImpl::YSIZE, byBrushSize, byBrushStrength);
+
+	if (bRefreshObjectHeight)
+		RefreshObjectHeight (fX, fY, (float) byBrushSize * CTerrainImpl::CELLSCALE_IN_METER);
+}
+
+void CMapManagerAccessor::SetAllWaterHeight (long lHeight)
+{
+	if (!IsMapReady() || !m_pMapAccessor)
+		return;
+	m_pMapAccessor->SetAllWaterHeight (lHeight);
 }
 
 void CMapManagerAccessor::EditingStart()
@@ -557,6 +613,70 @@ void CMapManagerAccessor::InsertObject (float fx, float fy, float fz, float fYaw
 	}
 
 	pAreaAccessor->AddObject (&ObjectData);
+	if (pAreaAccessor->GetObjectCount() > 0)
+		pAreaAccessor->SelectObject ((DWORD) (pAreaAccessor->GetObjectCount() - 1));
+}
+
+bool CMapManagerAccessor::GetObjectHeightBias (int iIndex, float * pfBias)
+{
+	if (!pfBias || iIndex < 0 || !IsMapReady())
+		return false;
+	CAreaAccessor * pArea = NULL;
+	if (!GetEditArea (&pArea) || !pArea)
+		return false;
+	CArea::TObjectData * pObjectData = NULL;
+	if (!pArea->GetObjectPointer ((DWORD) iIndex, &pObjectData) || !pObjectData)
+		return false;
+	*pfBias = pObjectData->m_fHeightBias;
+	return true;
+}
+
+bool CMapManagerAccessor::SetObjectHeightBias (int iIndex, float fBias)
+{
+	if (iIndex < 0 || !IsMapReady())
+		return false;
+	CAreaAccessor * pArea = NULL;
+	if (!GetEditArea (&pArea) || !pArea)
+		return false;
+	CArea::TObjectData * pObjectData = NULL;
+	if (!pArea->GetObjectPointer ((DWORD) iIndex, &pObjectData) || !pObjectData)
+		return false;
+	pObjectData->m_fHeightBias = fBias;
+	pArea->ApplyObjectInstance ((DWORD) iIndex);
+	return true;
+}
+
+bool CMapManagerAccessor::GetObjectRotation (int iIndex, float * pfYaw, float * pfPitch, float * pfRoll)
+{
+	if (!pfYaw || !pfPitch || !pfRoll || iIndex < 0 || !IsMapReady())
+		return false;
+	CAreaAccessor * pArea = NULL;
+	if (!GetEditArea (&pArea) || !pArea)
+		return false;
+	CArea::TObjectData * pObjectData = NULL;
+	if (!pArea->GetObjectPointer ((DWORD) iIndex, &pObjectData) || !pObjectData)
+		return false;
+	*pfYaw = pObjectData->m_fYaw;
+	*pfPitch = pObjectData->m_fPitch;
+	*pfRoll = pObjectData->m_fRoll;
+	return true;
+}
+
+bool CMapManagerAccessor::SetObjectRotation (int iIndex, float fYaw, float fPitch, float fRoll)
+{
+	if (iIndex < 0 || !IsMapReady())
+		return false;
+	CAreaAccessor * pArea = NULL;
+	if (!GetEditArea (&pArea) || !pArea)
+		return false;
+	CArea::TObjectData * pObjectData = NULL;
+	if (!pArea->GetObjectPointer ((DWORD) iIndex, &pObjectData) || !pObjectData)
+		return false;
+	pObjectData->m_fYaw = fYaw;
+	pObjectData->m_fPitch = fPitch;
+	pObjectData->m_fRoll = fRoll;
+	pArea->ApplyObjectInstance ((DWORD) iIndex);
+	return true;
 }
 
 void CMapManagerAccessor::RefreshObjectHeight (float fx, float fy, float fHalfSize)
@@ -1439,6 +1559,8 @@ bool CMapManagerAccessor::SaveMap (const char* c_szMapName)
 	}
 
 	LogBoxf ("[SUCCESS] SaveMap: Save complete. server_attr: [%s\\server_attr]", strMapFolder.c_str());
+	if (m_pMapAccessor)
+		m_pMapAccessor->ClearEdited();
 	return true;
 }
 
@@ -1461,18 +1583,46 @@ bool CMapManagerAccessor::SaveServerAttr()
 	return true;
 }
 
+static bool ReadMapSize (const std::string & c_rstrFolder, short * psCountX, short * psCountY)
+{
+	const std::string strSetting = c_rstrFolder + "\\setting.txt";
+	FILE * pFile = fopen (strSetting.c_str(), "r");
+	if (!pFile)
+		return false;
+
+	char szLine[512];
+	bool bFound = false;
+	while (fgets (szLine, sizeof (szLine), pFile))
+	{
+		int iCountX = 0;
+		int iCountY = 0;
+		if (sscanf (szLine, "MapSize %d %d", &iCountX, &iCountY) == 2 && iCountX > 0 && iCountY > 0)
+		{
+			*psCountX = (short) iCountX;
+			*psCountY = (short) iCountY;
+			bFound = true;
+			break;
+		}
+	}
+	fclose (pFile);
+	return bFound;
+}
+
+bool CMapManagerAccessor::GenerateServerAttr (const std::string & c_rstrFolder)
+{
+	return SaveServerAttr (c_rstrFolder);
+}
+
 bool CMapManagerAccessor::SaveServerAttr (const std::string & c_rstrFolder)
 {
-	if (!m_pMapAccessor)
-	{
-		return false;
-	}
-
-	short sCountX, sCountY;
-	m_pMapAccessor->GetTerrainCount (&sCountX, &sCountY);
+	short sCountX = 0;
+	short sCountY = 0;
+	if (m_pMapAccessor && m_pMapAccessor->GetName() == c_rstrFolder)
+		m_pMapAccessor->GetTerrainCount (&sCountX, &sCountY);
 	if (sCountX <= 0 || sCountY <= 0)
 	{
-		return false;
+		if (!ReadMapSize (c_rstrFolder, &sCountX, &sCountY))
+			return false;
 	}
 
 	const int iCell = CTerrainImpl::ATTRMAP_XSIZE;
@@ -1824,27 +1974,18 @@ void CMapManagerAccessor::SaveAtlas()
 	short sCountX, sCountY;
 	m_pMapAccessor->GetTerrainCount (&sCountX, &sCountY);
 
-	char szFileName[256];
-	sprintf (szFileName, "%s_atlas.bmp", m_pMapAccessor->GetName().c_str());
-	DeleteFile (szFileName);
+	if (sCountX <= 0 || sCountY <= 0 || !ms_lpd3dDevice)
+		return;
 
-	ilInit();
-	ilEnable (IL_FILE_OVERWRITE);
+	const bool atlasPng = CWorldEditorConfig::Instance().ExportMaiAtlasAsPng();
+	char szAtlas[256];
+	sprintf (szAtlas, atlasPng ? "%s_atlas.png" : "%s_atlas.bmp", m_pMapAccessor->GetName().c_str());
+	DeleteFile (szAtlas);
 
-	ILuint dstImage;
-	ilGenImages (1, &dstImage);
-	ilBindImage (dstImage);
-
-	ilClearImage();
-
-	ilConvertImage (IL_RGB, IL_BYTE);
-	iluScale (256 * sCountX, 256 * sCountY, 1);
-
-	ilSaveImage (szFileName);
-	ilLoadImage (szFileName);
-	ILint iImageDepth = ilGetInteger (IL_IMAGE_BYTES_PER_PIXEL);
-	ILint iImageFormat = ilGetInteger (IL_IMAGE_FORMAT);
-	ILint iImageType = ilGetInteger (IL_IMAGE_TYPE);
+	LPDIRECT3DSURFACE9 atlas = nullptr;
+	if (!ImageCreateSurface (ms_lpd3dDevice, 256 * sCountX, 256 * sCountY, &atlas))
+		return;
+	ImageClear (atlas, 256 * sCountX, 256 * sCountY);
 
 	for (short sY = 0; sY < sCountY; ++sY)
 	{
@@ -1857,36 +1998,24 @@ void CMapManagerAccessor::SaveAtlas()
 			CGraphicImageInstance aMiniMapImageInstance;
 			aMiniMapImageInstance.SetImagePointer ((CGraphicImage*) CResourceManager::Instance().GetResourcePointer (szDDSFileName));
 			if (aMiniMapImageInstance.IsEmpty())
-			{
 				continue;
+
+			char szTile[256];
+			sprintf (szTile, "%s_minimap_%06u.bmp", m_pMapAccessor->GetName().c_str(), wID);
+			D3DXSaveTextureToFile (szTile, D3DXIFF_BMP, aMiniMapImageInstance.GetTexturePointer()->GetD3DTexture(), NULL);
+
+			LPDIRECT3DSURFACE9 tile = nullptr;
+			if (ImageLoadFile (ms_lpd3dDevice, szTile, 256, 256, &tile))
+			{
+				ImageCopy (atlas, (int) sX * 256, (int) sY * 256, 256, 256, tile);
+				tile->Release();
 			}
-			sprintf (szFileName, "%s_minimap_%06u.bmp", m_pMapAccessor->GetName().c_str(), wID);
-			D3DXSaveTextureToFile (szFileName, D3DXIFF_BMP, aMiniMapImageInstance.GetTexturePointer()->GetD3DTexture(), NULL);
-
-			ILuint srcImage;
-			ilGenImages (2, &srcImage);
-			ilBindImage (srcImage);
-
-			ilLoadImage (szFileName);
-			iluFlipImage();	// BMP는 이미지가 거꾸로 되어 있다.
-
-			ILubyte * pData = ilGetData();
-			ILint iImageWidth = ilGetInteger (IL_IMAGE_WIDTH);
-			ILint iImageHeight = ilGetInteger (IL_IMAGE_HEIGHT);
-
-			ilBindImage (dstImage);
-			ilSetPixels ((ILint) sX * 256, (ILint) sY * 256, 0, iImageWidth, iImageHeight, iImageDepth, iImageFormat, iImageType, pData);
-
-			ilDeleteImages (2, &srcImage);
-			DeleteFile (szFileName);
+			DeleteFile (szTile);
 		}
 	}
 
-	sprintf (szFileName, "%s_atlas.bmp", m_pMapAccessor->GetName().c_str());
-	iluFlipImage();	// BMP는 이미지가 거꾸로 되어 있다.
-	ilSaveImage (szFileName);
-
-	ilDeleteImages (1, &dstImage);
+	ImageSave (szAtlas, atlasPng ? D3DXIFF_PNG : D3DXIFF_BMP, atlas);
+	atlas->Release();
 
 	if (CWorldEditorConfig::Instance().NoMaiAtlasDump())
 	{
@@ -1894,56 +2023,36 @@ void CMapManagerAccessor::SaveAtlas()
 		return;
 	}
 
-	sprintf (szFileName, "%s_MAI_atlas.bmp", m_pMapAccessor->GetName().c_str());
-	DeleteFile (szFileName);
+	char szMai[256];
+	sprintf (szMai, "%s_MAI_atlas.bmp", m_pMapAccessor->GetName().c_str());
+	DeleteFile (szMai);
 
-	ilGenImages (1, &dstImage);
-	ilBindImage (dstImage);
-
-	ilClearImage();
-
-	ilConvertImage (IL_RGB, IL_BYTE);
-	iluScale (1024 * sCountX, 1024 * sCountY, 1);
-
-	ilSaveImage (szFileName);
-	ilLoadImage (szFileName);
-	iImageDepth = ilGetInteger (IL_IMAGE_BYTES_PER_PIXEL);
-	iImageFormat = ilGetInteger (IL_IMAGE_FORMAT);
-	iImageType = ilGetInteger (IL_IMAGE_TYPE);
+	LPDIRECT3DSURFACE9 mai = nullptr;
+	if (!ImageCreateSurface (ms_lpd3dDevice, 1024 * sCountX, 1024 * sCountY, &mai))
+		return;
+	ImageClear (mai, 1024 * sCountX, 1024 * sCountY);
 
 	for (short iy = 0; iy < sCountY; ++iy)
 	{
 		for (short ix = 0; ix < sCountX; ++ix)
 		{
 			DWORD wID = (DWORD) (ix) * 1000L + (DWORD) (iy);
-			sprintf (szFileName, "MAI%s\\%06u_minimap.bmp", m_pMapAccessor->GetName().c_str(), wID);
+			char szTile[MAX_PATH];
+			sprintf (szTile, "MAI%s\\%06u_minimap.bmp", m_pMapAccessor->GetName().c_str(), wID);
 
-			ILuint srcImage;
-			ilGenImages (2, &srcImage);
-			ilBindImage (srcImage);
-
-			ilLoadImage (szFileName);
-			iluFlipImage();	// BMP는 이미지가 거꾸로 되어 있다.
-
-			ILubyte * pData = ilGetData();
-			ILint iImageWidth = ilGetInteger (IL_IMAGE_WIDTH);
-			ILint iImageHeight = ilGetInteger (IL_IMAGE_HEIGHT);
-
-			ilBindImage (dstImage);
-			ilSetPixels ((ILint) ix * 1024, (ILint) iy * 1024, 0, iImageWidth, iImageHeight, iImageDepth, iImageFormat, iImageType, pData);
-
-			ilDeleteImages (2, &srcImage);
+			LPDIRECT3DSURFACE9 tile = nullptr;
+			if (ImageLoadFile (ms_lpd3dDevice, szTile, 1024, 1024, &tile))
+			{
+				ImageCopy (mai, (int) ix * 1024, (int) iy * 1024, 1024, 1024, tile);
+				tile->Release();
+			}
 		}
 	}
 
-	sprintf (szFileName, "%s_MAI_atlas.bmp", m_pMapAccessor->GetName().c_str());
-	iluFlipImage();	// BMP는 이미지가 거꾸로 되어 있다.
-	ilSaveImage (szFileName);
+	ImageSave (szMai, D3DXIFF_BMP, mai);
+	mai->Release();
 
-	ilDeleteImages (1, &dstImage);
-
-	LogBoxf ("[SUCCESS] SaveAtlas: Save complete. Name: [%s].", szFileName);
-
+	LogBoxf ("[SUCCESS] SaveAtlas: Save complete. Name: [%s].", szMai);
 }
 
 void CMapManagerAccessor::UpdateTerrainShadowMap()
@@ -1969,7 +2078,8 @@ void CMapManagerAccessor::UpdateTerrainShadowMap()
 
 	if (CShadowRenderHelper::Instance().StartRenderingPhase (1))
 	{
-		CSpeedTreeDirectX::Instance().Render (Forest_RenderAll | Forest_RenderToShadow);
+		if (CArea::ms_bTreeOut)
+			CSpeedTreeDirectX::Instance().Render (Forest_RenderAll | Forest_RenderToShadow);
 		m_pMapAccessor->RenderToShadowMap();
 	}
 	else
@@ -2015,8 +2125,16 @@ void CMapManagerAccessor::ReloadTerrainShadowTexture()
 
 bool CMapManagerAccessor::LoadMap (const std::string & c_rstrMapName)
 {
+	const DWORD dwEditorLoadMap = ELTimer_GetMSec();
+	// Clear() runs Initialize(), which turns shadow drawing off. The Shadow
+	// checkbox stays checked, so the baked shadows never show until it is toggled.
+	const bool bDrawShadow = m_pMapAccessor->IsDrawShadow();
+	const bool bDrawCharacterShadow = m_pMapAccessor->IsDrawCharacterShadow();
 	m_pMapAccessor->Clear();
+	m_pMapAccessor->SetDrawShadow(bDrawShadow);
+	m_pMapAccessor->SetDrawCharacterShadow(bDrawCharacterShadow);
 	m_pMapAccessor->Leave();
+	TrimMemory();
 	m_pMapAccessor->SetName (c_rstrMapName);
 	m_pMapAccessor->LoadProperty();
 	__RefreshMapID (c_rstrMapName.c_str());
@@ -2032,6 +2150,9 @@ bool CMapManagerAccessor::LoadMap (const std::string & c_rstrMapName)
 		{
 			return false;
 		}
+
+		if (CWorldEditorConfig::Instance().PreloadAllTerrains())
+			m_pMapAccessor->PreloadAllTerrains();
 
 		const std::string& strEnvName = m_pMapAccessor->GetEnvironmentDataName();
 
@@ -2056,6 +2177,7 @@ bool CMapManagerAccessor::LoadMap (const std::string & c_rstrMapName)
 
 	m_pMapAccessor->Enter();
 	__AddMapInfo();
+	EditorFrameNotef("LoadMap %s %u ms", c_rstrMapName.c_str(), ELTimer_GetMSec() - dwEditorLoadMap);
 	return true;
 }
 
@@ -2104,6 +2226,7 @@ CMonsterAreaInfo* CMapManagerAccessor::AddNewMonsterAreaInfo (long lOriginX, lon
 	{
 		return nullptr;
 	}
+	m_pMapAccessor->MarkEdited();
 	return m_pMapAccessor->AddNewMonsterAreaInfo (lOriginX, lOriginY, lSizeX, lSizeY, eMonsterAreaInfoType, dwVID, dwCount, eNewMonsterDir);
 }
 

@@ -1,10 +1,8 @@
 #include "Stdafx.h"
 #include "SoundBase.h"
+#include "MilesMini.h"
 
-HDIGDRIVER				CSoundBase::ms_DIGDriver = nullptr;
 TSoundDataMap			CSoundBase::ms_dataMap;
-TProvider *				CSoundBase::ms_pProviderDefault = nullptr;
-std::vector<TProvider>	CSoundBase::ms_ProviderVector;
 bool					CSoundBase::ms_bInitialized = false;
 int						CSoundBase::ms_iRefCount = 0;
 
@@ -38,7 +36,7 @@ void CSoundBase::Destroy() const
 		ms_dataMap.clear();
 	}
 
-	AIL_shutdown();
+	MiniShutdownEngine();
 }
 
 void CSoundBase::Initialize() const
@@ -48,11 +46,7 @@ void CSoundBase::Initialize() const
 	if (ms_iRefCount > 1)
 		return;
 
-	//@warme001
-	AIL_set_redist_directory("miles");
-	AIL_startup();
-
-	ms_ProviderVector.clear();
+	MiniEnsureEngine();
 	ms_dataMap.clear();
 }
 

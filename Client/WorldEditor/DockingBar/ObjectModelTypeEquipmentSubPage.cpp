@@ -167,7 +167,7 @@ BOOL CObjectModelTypeEquipmentSubPage::OnCommand (WPARAM wParam, LPARAM lParam)
 
 void CObjectModelTypeEquipmentSubPage::OnLoadSound()
 {
-	DWORD dwFlag = OFN_NOCHANGEDIR;
+	DWORD dwFlag = OFN_NOCHANGEDIR | OFN_ENABLESIZING;
 	const char* c_szFilter = "Sound Files (*.wav)|*.wav|*.*|All Files (*.*)|";
 	CFileDialog FileOpener (TRUE, "Load", "", dwFlag, c_szFilter, this);
 
@@ -188,7 +188,7 @@ void CObjectModelTypeEquipmentSubPage::OnClearOneEffect()
 
 void CObjectModelTypeEquipmentSubPage::OnLoadEffect()
 {
-	DWORD dwFlag = OFN_NOCHANGEDIR;
+	DWORD dwFlag = OFN_NOCHANGEDIR | OFN_ENABLESIZING;
 	const char* c_szFilter = "Metin2 Effect Script Files (*.mse)|*.mse|*.*|All Files (*.*)|";
 	CFileDialog FileOpener (TRUE, "Load", "", dwFlag, c_szFilter, this);
 
@@ -207,7 +207,7 @@ void CObjectModelTypeEquipmentSubPage::OnLoadEffect()
 
 void CObjectModelTypeEquipmentSubPage::OnLoadIconImage()
 {
-	DWORD dwFlag = OFN_NOCHANGEDIR;
+	DWORD dwFlag = OFN_NOCHANGEDIR | OFN_ENABLESIZING;
 	const char* c_szFilter = "Metin2 SubImage Files (*.sub)|*.sub|*.*|All Files (*.*)|";
 	CFileDialog FileOpener (TRUE, "Load", "", dwFlag, c_szFilter, this);
 
@@ -219,7 +219,7 @@ void CObjectModelTypeEquipmentSubPage::OnLoadIconImage()
 
 void CObjectModelTypeEquipmentSubPage::OnLoadDropModel()
 {
-	DWORD dwFlag = OFN_NOCHANGEDIR;
+	DWORD dwFlag = OFN_NOCHANGEDIR | OFN_ENABLESIZING;
 	const char* c_szFilter = "Granny Model Files (*.gr2)|*.gr2|*.*|All Files (*.*)|";
 	CFileDialog FileOpener (TRUE, "Load", "", dwFlag, c_szFilter, this);
 

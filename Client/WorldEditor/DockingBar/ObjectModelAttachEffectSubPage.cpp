@@ -74,7 +74,7 @@ void CObjectModelAttachEffectSubPage::UpdateUI()
 
 void CObjectModelAttachEffectSubPage::OnEffectPageLoadEffect()
 {
-	DWORD dwFlag = OFN_NOCHANGEDIR;
+	DWORD dwFlag = OFN_NOCHANGEDIR | OFN_ENABLESIZING;
 	const char* c_szFilter = "Metin2 Effect Script Files (*.mse)|*.mse|*.*|All Files (*.*)|";
 	CFileDialog FileOpener (TRUE, "Load", "", dwFlag, c_szFilter, this);
 

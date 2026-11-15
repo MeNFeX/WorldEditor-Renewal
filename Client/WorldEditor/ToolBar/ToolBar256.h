@@ -20,6 +20,7 @@ class CToolBar256 : public CToolBar
 	public:
 		BOOL LoadBitmap (LPCTSTR lpszResourceName);
 		BOOL LoadBitmap (int nResourceID);
+		BOOL InstallLargeIcons (int nResourceID, int cx, int cy);
 
 		CToolBar256();
 		virtual ~CToolBar256();
@@ -33,7 +34,7 @@ class CToolBar256 : public CToolBar
 	protected:
 		BOOL AddReplaceBitmap (HBITMAP hbmImageWell);
 		int m_nBitmapID;
-		HBITMAP GetBitmap256 (HINSTANCE hInst, HRSRC hRsrc, BOOL bMono);
+		HBITMAP GetBitmap256 (HINSTANCE hInst, HRSRC hRsrc, BOOL bMono, BOOL bMapSysColors = TRUE);
 
 		// Generated message map functions
 		//{{AFX_MSG(CToolBar256)

@@ -783,6 +783,92 @@ void CStateManager::SetIndices(LPDIRECT3DINDEXBUFFER9 pIndexData, UINT BaseVerte
 	m_CurrentState.m_IndexData = kIndexData;
 }
 
+#ifdef WORLD_EDITOR
+static DWORD s_dwEditorDraws = 0;
+static DWORD s_dwEditorTris = 0;
+static DWORD s_dwEditorVerts = 0;
+static bool s_bEditorStats = false;
+
+void CStateManager::SetEditorStatsEnabled(bool bEnabled)
+{
+	s_bEditorStats = bEnabled;
+}
+
+bool CStateManager::EditorStatsEnabled()
+{
+	return s_bEditorStats;
+}
+
+static bool EditorIsTriangleList(D3DPRIMITIVETYPE eType)
+{
+	return eType == D3DPT_TRIANGLELIST || eType == D3DPT_TRIANGLESTRIP || eType == D3DPT_TRIANGLEFAN;
+}
+
+static UINT EditorVertexCount(D3DPRIMITIVETYPE eType, UINT uPrimCount)
+{
+	switch (eType)
+	{
+		case D3DPT_TRIANGLELIST:
+			return uPrimCount * 3;
+		case D3DPT_TRIANGLESTRIP:
+		case D3DPT_TRIANGLEFAN:
+			return uPrimCount + 2;
+		case D3DPT_LINELIST:
+			return uPrimCount * 2;
+		case D3DPT_LINESTRIP:
+			return uPrimCount + 1;
+		default:
+			return uPrimCount;
+	}
+}
+
+static UINT EditorIndexedVertexCount(D3DPRIMITIVETYPE eType, UINT uPrimCount, UINT uNumVertices)
+{
+	UINT uReferenced = uNumVertices;
+	switch (eType)
+	{
+		case D3DPT_TRIANGLESTRIP:
+		case D3DPT_TRIANGLEFAN:
+		case D3DPT_LINESTRIP:
+			uReferenced = uPrimCount + 2;
+			break;
+		case D3DPT_LINELIST:
+			uReferenced = uPrimCount * 2;
+			break;
+		default:
+			uReferenced = uNumVertices;
+			break;
+	}
+	if (uNumVertices > 0 && uReferenced > uNumVertices)
+		uReferenced = uNumVertices;
+	return uReferenced;
+}
+
+static void EditorNoteDraw(D3DPRIMITIVETYPE eType, UINT uPrimCount, UINT uVertexCount)
+{
+	if (!s_bEditorStats)
+		return;
+	++s_dwEditorDraws;
+	if (EditorIsTriangleList(eType))
+		s_dwEditorTris += uPrimCount;
+	s_dwEditorVerts += uVertexCount;
+}
+
+void CStateManager::ResetEditorStats()
+{
+	s_dwEditorDraws = 0;
+	s_dwEditorTris = 0;
+	s_dwEditorVerts = 0;
+}
+
+void CStateManager::GetEditorStats(DWORD & dwDraws, DWORD & dwTris, DWORD & dwVerts)
+{
+	dwDraws = s_dwEditorDraws;
+	dwTris = s_dwEditorTris;
+	dwVerts = s_dwEditorVerts;
+}
+#endif
+
 HRESULT CStateManager::DrawPrimitive(D3DPRIMITIVETYPE PrimitiveType, UINT StartVertex, UINT PrimitiveCount) const
 {
 	return (m_lpD3DDev->DrawPrimitive(PrimitiveType, StartVertex, PrimitiveCount));

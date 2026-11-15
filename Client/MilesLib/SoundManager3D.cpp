@@ -1,5 +1,6 @@
 #include "Stdafx.h"
 #include "SoundManager3D.h"
+#include "MilesMini.h"
 
 CSoundManager3D::CSoundManager3D()
 {
@@ -14,45 +15,19 @@ bool CSoundManager3D::Initialize()
 {
 	CSoundBase::Initialize();
 
-	if (ms_pProviderDefault)
+	if (m_bInit)
 		return true;
 
-	ms_ProviderVector.resize(MAX_PROVIDERS);
-
-	HPROENUM enum3D = HPROENUM_FIRST;
-	int i = 0;
-
-	while (AIL_enumerate_3D_providers(&enum3D,
-									  &ms_ProviderVector[i].hProvider,
-									  &ms_ProviderVector[i].name) && (i < MAX_PROVIDERS))
+	if (!MiniEnsureEngine())
 	{
-		TProvider * provider = &ms_ProviderVector[i];
-
-		if (strcmp(provider->name, "Miles Fast 2D Positional Audio") == 0)
-			ms_pProviderDefault = provider;
-
-		++i;
-	}
-
-	if (!ms_pProviderDefault)
-	{
+		TraceError("CSoundManager3D: the audio device did not open");
 		CSoundBase::Destroy();
 		return false;
 	}
-
-	assert(ms_pProviderDefault != nullptr);
-
-	if (M3D_NOERR != AIL_open_3D_provider(ms_pProviderDefault->hProvider))
-	{
-		CSoundBase::Destroy();
-		return false;
-	}
-
-	m_pListener = AIL_open_3D_listener(ms_pProviderDefault->hProvider);
 
 	SetListenerPosition(0.0f, 0.0f, 0.0f);
 
-	for (i = 0; i < INSTANCE_MAX_COUNT; ++i)
+	for (int i = 0; i < INSTANCE_MAX_COUNT; ++i)
 	{
 		m_Instances[i].Initialize();
 		m_bLockingFlag[i] = false;
@@ -70,41 +45,24 @@ void CSoundManager3D::Destroy()
 	for (int i = 0; i < INSTANCE_MAX_COUNT; ++i)
 		m_Instances[i].Destroy();
 
-	if (m_pListener)
-	{
-		AIL_close_3D_listener(m_pListener);
-		m_pListener = nullptr;
-	}
-
-	if (ms_pProviderDefault)
-	{
-		AIL_close_3D_provider(ms_pProviderDefault->hProvider);
-		ms_pProviderDefault = nullptr;
-	}
-
 	CSoundBase::Destroy();
 	m_bInit = false;
 }
 
 void CSoundManager3D::SetListenerDirection(float fxDir, float fyDir, float fzDir, float fxUp, float fyUp, float fzUp) const
 {
-	if (nullptr == m_pListener)
-		return;
-	AIL_set_3D_orientation(m_pListener, fxDir, fyDir, -fzDir, fxUp, fyUp, -fzUp);
+	MiniListenerDirection(fxDir, fyDir, -fzDir, fxUp, fyUp, -fzUp);
 }
 
 void CSoundManager3D::SetListenerPosition(float fX, float fY, float fZ) const
 {
-	if (nullptr == m_pListener)
-		return;
-	AIL_set_3D_position(m_pListener, fX, fY, -fZ);
+	MiniListenerPosition(fX, fY, -fZ);
 }
 
 void CSoundManager3D::SetListenerVelocity(float fDistanceX, float fDistanceY, float fDistanceZ, float fNagnitude) const
 {
-	if (nullptr == m_pListener)
-		return;
-	AIL_set_3D_velocity(m_pListener, fDistanceX, fDistanceY, -fDistanceZ, fNagnitude);
+	MiniListenerVelocity(fDistanceX, fDistanceY, -fDistanceZ);
+	(void) fNagnitude;
 }
 
 int CSoundManager3D::SetInstance(const char * c_pszFileName)

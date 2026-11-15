@@ -109,6 +109,7 @@ class CMapOutdoorAccessor : public CMapOutdoor
 
 		bool SaveTerrains();
 		bool SaveAreas();
+		void SetAllWaterHeight (long lHeight);
 
 		void DrawHeightBrush (DWORD c_rdwBrushShape,
 							  DWORD c_rdwBrushType,
@@ -166,6 +167,9 @@ class CMapOutdoorAccessor : public CMapOutdoor
 		int GetMapID();
 		void SetMapID (int iID);
 		void SetTerrainModified();
+		void MarkEdited() { m_bEdited = true; }
+		void ClearEdited() { m_bEdited = false; }
+		bool IsEdited() const { return m_bEdited; }
 
 		bool CreateNewTerrainFiles (WORD wCoordX, WORD wCoordY);
 
@@ -230,6 +234,7 @@ class CMapOutdoorAccessor : public CMapOutdoor
 		void AddSelectedObjectPortalNumber (int iNum);
 		const TPortalNumberVector& GetSelectedObjectPortalVectorRef();
 		const char* GetSelectedObjectName();
+		void PreloadAllTerrains();
 
 	protected:
 		virtual void	__ClearGarvage();
@@ -263,6 +268,7 @@ class CMapOutdoorAccessor : public CMapOutdoor
 		float					m_fSplatValue;
 
 		int						m_iMapID;
+		bool					m_bEdited;
 
 		std::string				m_strSelectedObjectName;
 		TPortalNumberVector		m_kVec_iPortalNumber;

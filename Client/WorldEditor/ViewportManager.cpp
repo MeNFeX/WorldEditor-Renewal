@@ -100,15 +100,15 @@ void CViewportManager::MouseMove (CPoint Mouse)
 {
 	CCamera * pCurrentCamera = CCameraManager::Instance().GetCurrentCamera();
 
-	if (m_ClickedLeftButton)
+	if (m_ClickedRightButton)
 	{
 		float fRoll, fPitch;
-		fRoll =  - (m_ClickedLeftButtonPoint.x - Mouse.x) * 0.3f;
-		fPitch = max (- pCurrentCamera->GetPitch() - 89.9f, min (89.9f - pCurrentCamera->GetPitch(), - (m_ClickedLeftButtonPoint.y - Mouse.y) * 0.3f));
+		fRoll =  - (m_ClickedRightButtonPoint.x - Mouse.x) * 0.3f;
+		fPitch = max (- pCurrentCamera->GetPitch() - 89.9f, min (89.9f - pCurrentCamera->GetPitch(), - (m_ClickedRightButtonPoint.y - Mouse.y) * 0.3f));
 
 		pCurrentCamera->RotateEyeAroundTarget (fPitch, fRoll);
 
-		m_ClickedLeftButtonPoint = Mouse;
+		m_ClickedRightButtonPoint = Mouse;
 	}
 }
 
@@ -164,7 +164,7 @@ void CViewportManager::MoveMousePosition (float x, float y, float& xMove, float&
 
 void CViewportManager::Initialize()
 {
-	m_fFrustumNear = 100.0f;
+	m_fFrustumNear = 50.0f;
 	m_fFrustumFar = 120000.0f;
 
 	m_ClickedLeftButtonPoint = CPoint (-1, -1);

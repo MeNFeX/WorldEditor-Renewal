@@ -122,10 +122,14 @@ bool CGrannyModelInstance::Intersect(const D3DXMATRIX * c_pMatrix,
 			TIndex*	modelIndices;
 			TPNTVertex*	modelVertices;
 
+			if (m_pModel->GetIndexStride() != (int) sizeof (TIndex))
+				continue;
+
 			if (m_pModel->LockVertices((void**)&modelIndices, (void**)&modelVertices))
 			{
+				const int vtxStride = m_pModel->GetPNTVertexStride();
 				TIndex* meshIndices = modelIndices + c_pMesh->GetIndexBasePosition();
-				TPNTVertex* meshVertices = modelVertices + c_pMesh->GetVertexBasePosition();
+				BYTE* meshVertices = ((BYTE*) modelVertices) + c_pMesh->GetVertexBasePosition() * vtxStride;
 
 				for (int i = 0; i < groupCount; ++i)
 				{
@@ -136,7 +140,7 @@ bool CGrannyModelInstance::Intersect(const D3DXMATRIX * c_pMatrix,
 
 					if (IntersectMesh(&matMesh,
 									  meshVertices,
-									  sizeof(TPNTVertex),
+									  vtxStride,
 									  vtxCount,
 									  meshIndices,
 									  GrannyGetMeshIndexCount(c_pgrnMesh),

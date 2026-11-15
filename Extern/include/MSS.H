@@ -282,6 +282,8 @@ extern "C" {
 
     #ifdef __BORLANDC__
       #define DXDEC extern
+    #elif defined(_WIN64)
+      #define DXDEC extern
     #else
       #define DXDEC __declspec(dllimport)
     #endif

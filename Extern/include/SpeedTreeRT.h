@@ -367,7 +367,11 @@ static  void                    SetTime(float fTime);
         float                   GetWindStrength(void) const;
         float                   SetWindStrength(float fNewStrength, float fOldStrength = -1.0f, float fFrequencyTimeOffset = -1.0f);
 
+#if defined(_WIN64) || defined(SPEEDTREE_STATIC)
+static  void                    SetNumWindMatrices(int nNumMatrices);
+#else
 static  void                    SetNumWindMatrices(unsigned int nNumMatrices);
+#endif
 static  void                    SetWindMatrix(unsigned int nMatrixIndex, const float* pMatrix);
         void                    GetLocalMatrices(unsigned int& nStartingIndex, unsigned int& nMatrixSpan);
         void                    SetLocalMatrices(unsigned int nStartingMatrix, unsigned int nMatrixSpan);

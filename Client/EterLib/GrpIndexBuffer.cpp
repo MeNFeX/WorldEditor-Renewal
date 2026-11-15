@@ -111,7 +111,7 @@ bool CGraphicIndexBuffer::Create(int idxCount, D3DFORMAT d3dFmt)
 	Destroy();
 
 	m_iidxCount = idxCount;
-	m_dwBufferSize = sizeof(WORD) * idxCount;
+	m_dwBufferSize = ((d3dFmt == D3DFMT_INDEX32) ? sizeof(DWORD) : sizeof(WORD)) * idxCount;
 	m_d3dFmt = d3dFmt;
 
 	return CreateDeviceObjects();

@@ -500,7 +500,7 @@ void CWorldEditorConfig::ApplyDefaults()
 	m_iMinimapEffectSnapshot = 0;
 	m_iEnableGr2Animation = 1;
 	m_iCharacterShadowMapSize = 512;
-	m_iEnableNewCompass = 1;
+	m_iEnableNewCompass = 0;
 	m_iEnableObjectHierarchy = 1;
 	m_iIntersectObjectPicking = 0;
 	m_iAutoBackup = 1;
@@ -510,6 +510,9 @@ void CWorldEditorConfig::ApplyDefaults()
 	m_iAutogenPropertyEffect = 1;
 	m_iNewObjectIdFromCrc = 1;
 	m_iEnableTreeRotation = 0;
+	m_iExportMaiAtlasAsPng = 1;
+	m_iPreloadAllTerrains = 1;
+	m_iEnableMapAttrColored = 1;
 	m_strLocale = "EN";
 	m_strAutoBackupFolder = "_backup";
 	m_strExportFolder = "_export";
@@ -870,5 +873,20 @@ void CWorldEditorConfig::ApplyKey (const std::string & c_rstrKey, const std::str
 	{
 		m_iEnableTreeRotation = ConfigToInt (c_rstrValue);
 		Tracef ("WorldEditorConfig: ENABLE_TREE_ROTATION %d\n", m_iEnableTreeRotation);
+	}
+	else if (c_rstrKey == "EXPORT_MAI_ATLAS_AS_PNG")
+	{
+		m_iExportMaiAtlasAsPng = ConfigToInt (c_rstrValue);
+		Tracef ("WorldEditorConfig: EXPORT_MAI_ATLAS_AS_PNG %d\n", m_iExportMaiAtlasAsPng);
+	}
+	else if (c_rstrKey == "PRELOAD_ALL_TERRAINS")
+	{
+		m_iPreloadAllTerrains = ConfigToInt (c_rstrValue);
+		Tracef ("WorldEditorConfig: PRELOAD_ALL_TERRAINS %d\n", m_iPreloadAllTerrains);
+	}
+	else if (c_rstrKey == "ENABLE_MAP_ATTR_COLORED")
+	{
+		m_iEnableMapAttrColored = ConfigToInt (c_rstrValue);
+		Tracef ("WorldEditorConfig: ENABLE_MAP_ATTR_COLORED %d\n", m_iEnableMapAttrColored);
 	}
 }

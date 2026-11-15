@@ -35,7 +35,6 @@ class CMapAttributePage : public CPageCtrl
 		// Dialog Data
 		//{{AFX_DATA(CMapAttributePage)
 		enum { IDD = IDD_MAP_ATTRIBUTE };
-		CSliderCtrl	m_SliderAttrNum;
 		CEdit	m_EditMonsterAreaSizeY;
 		CSliderCtrl	m_SliderMonsterAreaScale;
 		CComboBox	m_ComboSelectedMonsterName;
@@ -71,6 +70,7 @@ class CMapAttributePage : public CPageCtrl
 	protected:
 		CBitmap m_BitmapBrushShapeCircle;
 		CBitmap m_BitmapBrushShapeSquare;
+		CBitmap m_BitmapBrushShapeTriangle;
 
 		CMonsterAreaInfo* m_pSelectedMonsterAreaInfo;
 
@@ -81,6 +81,7 @@ class CMapAttributePage : public CPageCtrl
 
 		void UpdateBrushMode();
 		void UpdateBrushShape();
+		void SelectBrushShapeButton (int nId);
 		void UpdateBrushSize();
 		BYTE GetAttributeFlag();
 		void BuildMonsterAreaInfo();
@@ -100,6 +101,7 @@ class CMapAttributePage : public CPageCtrl
 		afx_msg void OnCheckAttreraser();
 		afx_msg void OnMapAttrBrushShapeCircle();
 		afx_msg void OnMapAttrBrushShapeSquare();
+		afx_msg void OnMapAttrBrushShapeTriangle();
 		afx_msg void OnHScroll (UINT nSBCode, UINT nPos, CScrollBar* pScrollBar);
 		afx_msg void OnMapAttrCheckbox();
 		afx_msg void OnButtonMonsterAreaInfoRemove();

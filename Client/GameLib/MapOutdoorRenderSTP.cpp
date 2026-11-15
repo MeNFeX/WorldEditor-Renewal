@@ -25,8 +25,13 @@ void CMapOutdoor::__RenderTerrain_RenderSoftwareTransformPatch()
 
 	__SoftwareTransformPatch_BuildPipeline(kTPRS);
 
+#ifdef WORLD_EDITOR
+	const std::pair<float, long> fog_far(100000000.0f, 0);
+	const std::pair<float, long> fog_near(100000000.0f, 0);
+#else
 	const std::pair<float, long> fog_far(kTPRS.m_fFogFarDistance+800.0f, 0);
 	const std::pair<float, long> fog_near(kTPRS.m_fFogNearDistance-3200.0f, 0);
+#endif
 
 	const auto far_it = std::upper_bound(m_PatchVector.begin(),m_PatchVector.end(),fog_far);
 	const auto near_it = std::upper_bound(m_PatchVector.begin(),m_PatchVector.end(),fog_near);
@@ -219,6 +224,8 @@ void CMapOutdoor::__SoftwareTransformPatch_RenderPatchSplat(SoftwareTransformPat
 
 	if (m_bDrawShadow)
 	{
+		STATEMANAGER.SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
+		STATEMANAGER.SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
 		__SoftwareTransformPatch_SetShadowStream(akTransVertex);
 		__SoftwareTransformPatch_ApplyStaticShadowRenderState();
 
@@ -251,6 +258,7 @@ void CMapOutdoor::__SoftwareTransformPatch_RenderPatchSplat(SoftwareTransformPat
   		++m_iRenderedSplatNum;
 
 		__SoftwareTransformPatch_RestoreStaticShadowRenderState();
+		STATEMANAGER.SetRenderState(D3DRS_ALPHATESTENABLE, TRUE);
 	}
 
 	++m_iRenderedPatchNum;

@@ -8,8 +8,10 @@
 #include "WorldEditorView.h"
 #include "Dialog/DlgGoto.h"
 #include "Util.h"
+#include "WorldEditorPython.h"
 #include "DataCtrl/ShadowRenderHelper.h"
 #include "../EterLib/Camera.h"
+#include "../EterLib/EditorFrameLog.h"
 
 #ifdef _DEBUG
 	#define new DEBUG_NEW
@@ -39,6 +41,7 @@ BEGIN_MESSAGE_MAP (CWorldEditorView, CView)
 	ON_WM_SYSKEYUP()
 	ON_WM_SIZE()
 	ON_WM_SETCURSOR()
+	ON_WM_DROPFILES()
 	//}}AFX_MSG_MAP
 	// Standard printing commands
 	ON_COMMAND (ID_FILE_PRINT, CView::OnFilePrint)
@@ -78,9 +81,17 @@ int CWorldEditorView::OnCreate (LPCREATESTRUCT lpCreateStruct)
 	m_pDlgPerspective->Create (IDD_DIALOG_PERSPECTIVE, this);
 	m_pDlgPerspective->SetWindowPos (NULL, 0, 0, 0, 0, TRUE);
 	m_pDlgPerspective->SetFOV (CWorldEditorConfig::Instance().WindowFov());
-	m_pDlgPerspective->SetNearDistance (100.0f);
+	m_pDlgPerspective->SetNearDistance (50.0f);
 	m_pDlgPerspective->SetFarDistance (30000.0f);
+	DragAcceptFiles (TRUE);
 	return 0;
+}
+
+void CWorldEditorView::OnDropFiles (HDROP hDropInfo)
+{
+	CMainFrame* pFrame = (CMainFrame*) AfxGetMainWnd();
+	if (pFrame)
+		pFrame->AcceptMapFolderDrop (hDropInfo);
 }
 
 BOOL CWorldEditorView::PreCreateWindow (CREATESTRUCT& cs)
@@ -195,8 +206,8 @@ void CWorldEditorView::GetMouseLocalPosition (POINT point, float* px, float* py)
 
 	CRect Rect;
 	GetWindowRect (&Rect);
-	m_Screen.SetPerspective (m_pDlgPerspective->GetFOV(), float (Rect.Width()) / float (Rect.Height()), 100.0f, m_ViewportManager.GetFrustumFarDistance());
-	m_Screen.SetAroundCamera (pOriginalCamera->GetDistance(), pOriginalCamera->GetPitch(), pOriginalCamera->GetRoll(), 100.0f);
+	m_Screen.SetPerspective (m_pDlgPerspective->GetFOV(), float (Rect.Width()) / float (Rect.Height()), 50.0f, m_ViewportManager.GetFrustumFarDistance());
+	m_Screen.SetAroundCamera (pOriginalCamera->GetDistance(), pOriginalCamera->GetPitch(), pOriginalCamera->GetRoll(), 50.0f);
 
 	m_Screen.SetCursorPosition (point.x, point.y, Rect.Width(), Rect.Height());
 	m_Screen.GetCursorXYPosition (px, py);
@@ -274,7 +285,7 @@ void CWorldEditorView::RunKeyDown (int iChar)
 	{
 		if (!CWorldEditorConfig::Instance().EnablePython())
 			Tracef ("Python disabled.\n");
-		else
+		else if (!RunWorldEditorPython())
 			Tracef ("Python failed to be loaded.\n");
 	}
 	CWorldEditorDoc * pDoc = GetDocument();
@@ -623,7 +634,7 @@ void CWorldEditorView::ResetDefaultPerspective()
 	SetEditorFov (CWorldEditorConfig::Instance().WindowFov());
 	if (m_pDlgPerspective)
 	{
-		m_pDlgPerspective->SetNearDistance (100.0f);
+		m_pDlgPerspective->SetNearDistance (50.0f);
 		m_pDlgPerspective->SetFarDistance (30000.0f);
 	}
 
@@ -635,8 +646,11 @@ void CWorldEditorView::ResetDefaultPerspective()
 
 void CWorldEditorView::Process()
 {
+	EditorFrameBegin();
 	if (IsLocked())
 	{
+		EditorFrameMark ("locked");
+		EditorFrameEnd();
 		return;
 	}
 
@@ -647,13 +661,17 @@ void CWorldEditorView::Process()
 	ASSERT_VALID (pDoc);
 
 	CResourceManager::Instance().Update();
+	EditorFrameMark ("resource");
 
 	UpdateFrustum();
+	EditorFrameMark ("frustum");
 
 	CSceneBase * pScene = pDoc->GetActiveScene();
 	pScene->Update();
+	EditorFrameMark ("scene.update");
 
 	m_Screen.Begin();
+	EditorFrameMark ("begin");
 
 	pScene->Render (true);
 
@@ -680,19 +698,30 @@ void CWorldEditorView::Process()
 		STATEMANAGER.RestoreTransform (D3DTS_VIEW);
 		STATEMANAGER.RestoreTransform (D3DTS_PROJECTION);
 	}
+	EditorFrameMark ("scene.render");
 
 	///////////////////////////////////////////////////////////////////////////////////////////////
 	m_Screen.End();
+	EditorFrameMark ("end");
 	m_Screen.Show (NULL, GetSafeHwnd());
+	EditorFrameMark ("present");
 
 	m_Screen.ResetFaceCount();
 
-	//////////////////////////////////////////////////////////////////////////////
-	static int lastTime = timeGetTime();
-	long lElapsedTime = timeGetTime() - lastTime;
-	if (lElapsedTime < 16)
+	static LARGE_INTEGER s_freq = {};
+	static LARGE_INTEGER s_prev = {};
+	if (s_freq.QuadPart == 0)
+		QueryPerformanceFrequency (&s_freq);
+	LARGE_INTEGER now;
+	QueryPerformanceCounter (&now);
+	if (s_prev.QuadPart != 0 && s_freq.QuadPart != 0)
 	{
-		Sleep (16 - lElapsedTime);
+		const float fFrameMs = (float) ((double) (now.QuadPart - s_prev.QuadPart) * 1000.0 / (double) s_freq.QuadPart);
+		CMainFrame * pFrame = (CMainFrame *) AfxGetMainWnd();
+		if (pFrame)
+			pFrame->SetFrameTime (fFrameMs);
 	}
-	lastTime = timeGetTime();
+	s_prev = now;
+	EditorFrameMark ("statusbar");
+	EditorFrameEnd();
 }

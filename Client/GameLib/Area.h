@@ -200,6 +200,9 @@ class CArea
 
 		void			CollectRenderingObject(std::vector<CGraphicThingInstance*>& rkVct_pkOpaqueThingInst);
 		void			CollectBlendRenderingObject(std::vector<CGraphicThingInstance*>& rkVct_pkBlendThingInst);
+#ifdef WORLD_EDITOR
+		DWORD			EditorVisibleObjectCount() const;
+#endif
 
 		void			SetMapOutDoor(CMapOutdoor * pOwnerOutdoorMap);
 		void			Clear();
@@ -249,6 +252,10 @@ class CArea
 		DWORD			DEBUG_GetRenderedGrapphicThingInstanceNum() const;
 
 		CMapOutdoor *	GetOwner() const { return m_pOwnerOutdoorMap; }
+
+		static bool ms_bTreeOut;
+		static bool ms_bEffectOut;
+		static bool ms_bAmbienceOut;
 
 	protected:
 

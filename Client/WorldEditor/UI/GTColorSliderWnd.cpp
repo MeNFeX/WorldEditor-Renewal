@@ -90,7 +90,7 @@ BOOL GTColorSliderWnd::Create (DWORD dwStyle, CRect rcPos, CWnd* pParent, UINT n
 				   rcPos.Width(),
 				   rcPos.Height(),
 				   pParent->GetSafeHwnd(),
-				   (HMENU) nID,
+				   reinterpret_cast<HMENU>(static_cast<UINT_PTR>(nID)),
 				   lp))
 
 	{
@@ -539,7 +539,7 @@ void GTColorSliderWnd::OnSize (UINT nType, int cx, int cy)
 
 }
 
-LONG GTColorSliderWnd::OnSelectBulletOK (UINT wParam, LONG lParam)
+LRESULT GTColorSliderWnd::OnSelectBulletOK (WPARAM wParam, LPARAM lParam)
 {
 	wParam;
 	lParam;

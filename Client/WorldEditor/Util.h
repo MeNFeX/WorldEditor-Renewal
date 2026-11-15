@@ -82,7 +82,7 @@ class COpenFileDialog
 			m_ofn.lpstrFileTitle	= m_szFileName;
 			m_ofn.nMaxFileTitle		= sizeof (m_szFileName);
 
-			m_ofn.Flags				= OFN_PATHMUSTEXIST | m_dwFlag;
+			m_ofn.Flags				= OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR | OFN_ENABLESIZING | m_dwFlag;
 			m_ofn.lpstrTitle		= mc_pszTitle;
 			m_ofn.lpstrInitialDir	= mc_pszDefaultPath;
 			m_ofn.lpstrDefExt		= NULL;
@@ -200,6 +200,7 @@ class CWorldEditorConfig
 		bool EnableObjectHierarchy() const { return m_iEnableObjectHierarchy != 0; }
 		bool IntersectObjectPicking() const { return m_iIntersectObjectPicking != 0; }
 		bool AutoBackup() const { return m_iAutoBackup != 0; }
+		void SetAutoBackup (bool on) { m_iAutoBackup = on ? 1 : 0; }
 		const std::string & AutoBackupFolder() const { return m_strAutoBackupFolder; }
 		int AutoBackupSubfolderMode() const { return m_iAutoBackupSubfolderMode; }
 		const std::string & ExportFolder() const { return m_strExportFolder; }
@@ -208,6 +209,9 @@ class CWorldEditorConfig
 		bool AutogenPropertyEffect() const { return m_iAutogenPropertyEffect != 0; }
 		bool NewObjectIdFromCrc() const { return m_iNewObjectIdFromCrc != 0; }
 		bool EnableTreeRotation() const { return m_iEnableTreeRotation != 0; }
+		bool ExportMaiAtlasAsPng() const { return m_iExportMaiAtlasAsPng != 0; }
+		bool PreloadAllTerrains() const { return m_iPreloadAllTerrains != 0; }
+		bool EnableMapAttrColored() const { return m_iEnableMapAttrColored != 0; }
 
 	private:
 		CWorldEditorConfig();
@@ -254,6 +258,9 @@ class CWorldEditorConfig
 		int m_iAutogenPropertyEffect;
 		int m_iNewObjectIdFromCrc;
 		int m_iEnableTreeRotation;
+		int m_iExportMaiAtlasAsPng;
+		int m_iPreloadAllTerrains;
+		int m_iEnableMapAttrColored;
 		float m_fMouseWheelMin;
 		float m_fMouseWheelMax;
 		std::string m_strLocale;

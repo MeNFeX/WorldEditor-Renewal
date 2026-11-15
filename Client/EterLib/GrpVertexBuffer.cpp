@@ -166,6 +166,10 @@ void CGraphicVertexBuffer::Initialize()
 	m_lpd3dVB = nullptr;
 	m_vtxCount = 0;
 	m_dwBufferSize = 0;
+	m_dwFVF = 0;
+	m_dwUsage = 0;
+	m_d3dPool = D3DPOOL_DEFAULT;
+	m_dwLockFlag = 0;
 }
 
 CGraphicVertexBuffer::CGraphicVertexBuffer()

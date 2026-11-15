@@ -3,6 +3,8 @@
 
 #include "SoundBase.h"
 
+struct SMiniVoice;
+
 class ISoundInstance : public CSoundBase
 {
 public:
@@ -49,7 +51,7 @@ public: // from interface
 	void	SetVelocity(float fx, float fy, float fz, float fMagnitude) const;
 
 private:
-	HSAMPLE			m_sample;
+	SMiniVoice*		m_voice;
 	CSoundData*		m_pSoundData;
 };
 
@@ -80,7 +82,7 @@ class CSoundInstance3D : public ISoundInstance
 		void	UpdatePosition(float fElapsedTime) const;
 
 	private:
-		H3DSAMPLE		m_sample;
+		SMiniVoice*		m_voice;
 		CSoundData *		m_pSoundData;
 };
 
@@ -94,7 +96,7 @@ public: // from interface
 	bool	Initialize();
 	void	Destroy();
 
-	void	SetStream(HSTREAM stream);
+	bool	LoadFile(const char* filename);
 	bool	SetSound(CSoundData* pSound);
 
 	void	Play(int iLoopCount = 1, DWORD dwPlayCycleTimeLimit = 0) const;
@@ -112,7 +114,7 @@ public: // from interface
 	void	SetVelocity(float fx, float fy, float fz, float fMagnitude) const;
 
 private:
-	HSTREAM		m_stream;
+	SMiniVoice*	m_voice;
 };
 
 #endif

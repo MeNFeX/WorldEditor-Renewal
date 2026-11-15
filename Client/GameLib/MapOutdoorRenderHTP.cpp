@@ -2,6 +2,7 @@
 #include "MapOutdoor.h"
 
 #include "../eterlib/StateManager.h"
+#include "../eterLib/EditorFrameLog.h"
 
 void CMapOutdoor::__RenderTerrain_RenderHardwareTransformPatch()
 {
@@ -72,8 +73,13 @@ void CMapOutdoor::__RenderTerrain_RenderHardwareTransformPatch()
 	m_iRenderedSplatNum = 0;
 	m_RenderedTextureNumVector.clear();
 
+#ifdef WORLD_EDITOR
+	const std::pair<float, long> fog_far(100000000.0f, 0);
+	const std::pair<float, long> fog_near(100000000.0f, 0);
+#else
 	const std::pair<float, long> fog_far(fFogFarDistance+1600.0f, 0);
 	const std::pair<float, long> fog_near(fFogNearDistance-3200.0f, 0);
+#endif
 
 	auto far_it = std::upper_bound(m_PatchVector.begin(),m_PatchVector.end(),fog_far);
 	auto near_it = std::upper_bound(m_PatchVector.begin(),m_PatchVector.end(),fog_near);
@@ -249,6 +255,22 @@ void CMapOutdoor::__HardwareTransformPatch_RenderPatchSplat(long patchnum, WORD 
 	WORD wCoordX, wCoordY;
 	pTerrain->GetCoordinate(&wCoordX, &wCoordY);
 
+#ifdef WORLD_EDITOR
+	// The sector under the camera and its neighbors keep every texture layer.
+	// Farther sectors keep the base texture and the shadow, which is the costly part.
+	bool bBaseOnly = false;
+	if (m_CurCoordinate.m_sTerrainCoordX >= 0 && m_CurCoordinate.m_sTerrainCoordY >= 0)
+	{
+		int iDx = (int)wCoordX - (int)m_CurCoordinate.m_sTerrainCoordX;
+		int iDy = (int)wCoordY - (int)m_CurCoordinate.m_sTerrainCoordY;
+		if (iDx < 0)
+			iDx = -iDx;
+		if (iDy < 0)
+			iDy = -iDy;
+		bBaseOnly = (iDx > 1 || iDy > 1);
+	}
+#endif
+
 	TTerrainSplatPatch & rTerrainSplatPatch = pTerrain->GetTerrainSplatPatch();
 
 	D3DXMATRIX matTexTransform, matSplatAlphaTexTransform, matSplatColorTexTransform;
@@ -275,6 +297,13 @@ void CMapOutdoor::__HardwareTransformPatch_RenderPatchSplat(long patchnum, WORD 
 	STATEMANAGER.SetRenderState(D3DRS_LIGHTING, FALSE);
 
 	int iPrevRenderedSplatNum=m_iRenderedSplatNum;
+
+#ifdef WORLD_EDITOR
+	if (bBaseOnly)
+		EditorFrameCount(EDITOR_COUNT_PATCH_BASE);
+	else
+		EditorFrameCount(EDITOR_COUNT_PATCH_FULL);
+#endif
 
 #ifdef WORLD_EDITOR
 	bool bTextureCountTint = false;
@@ -321,6 +350,10 @@ void CMapOutdoor::__HardwareTransformPatch_RenderPatchSplat(long patchnum, WORD 
 		if (rTerrainSplatPatch.PatchTileCount[sPatchNum][j] == 0)
 			continue;
 
+#ifdef WORLD_EDITOR
+		EditorFrameCount(EDITOR_COUNT_SPLAT);
+#endif
+
 		const TTerrainTexture & rTexture = m_TextureSet.GetTexture(j);
 
 		D3DXMatrixMultiply(&matSplatColorTexTransform, &m_matViewInverse, &rTexture.m_matTransform);
@@ -348,6 +381,10 @@ void CMapOutdoor::__HardwareTransformPatch_RenderPatchSplat(long patchnum, WORD 
 		if (m_iRenderedSplatNum >= m_iSplatLimit)
 			break;
 
+#ifdef WORLD_EDITOR
+		if (bBaseOnly)
+			break;
+#endif
 	}
 
 #ifdef WORLD_EDITOR
@@ -361,6 +398,8 @@ void CMapOutdoor::__HardwareTransformPatch_RenderPatchSplat(long patchnum, WORD 
 
 	if (m_bDrawShadow)
 	{
+		STATEMANAGER.SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
+		STATEMANAGER.SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
 		STATEMANAGER.SetRenderState(D3DRS_LIGHTING, TRUE);
 
 		STATEMANAGER.SetRenderState(D3DRS_FOGCOLOR, 0xFFFFFFFF);
@@ -424,6 +463,7 @@ void CMapOutdoor::__HardwareTransformPatch_RenderPatchSplat(long patchnum, WORD 
 		STATEMANAGER.SetRenderState(D3DRS_FOGCOLOR, dwFogColor);
 
 		STATEMANAGER.SetRenderState(D3DRS_LIGHTING, FALSE);
+		STATEMANAGER.SetRenderState(D3DRS_ALPHATESTENABLE, TRUE);
 	}
 	++m_iRenderedPatchNum;
 

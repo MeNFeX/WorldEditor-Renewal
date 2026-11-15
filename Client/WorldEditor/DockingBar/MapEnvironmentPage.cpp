@@ -642,7 +642,7 @@ void CMapEnvironmentPage::OnHScroll (UINT nSBCode, UINT nPos, CScrollBar* pScrol
 
 void CMapEnvironmentPage::OnLoadEnvironmentScript()
 {
-	DWORD dwFlag = OFN_ALLOWMULTISELECT | OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR;
+	DWORD dwFlag = OFN_ALLOWMULTISELECT | OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR | OFN_ENABLESIZING;
 	const char* c_szFilter = "Metin2 Environment Script Files (*.msenv)|*.msenv|All Files (*.*)|*.*|";
 
 	CFileDialog FileOpener (TRUE, "Load", "", dwFlag, c_szFilter, this);
@@ -667,7 +667,7 @@ void CMapEnvironmentPage::OnLoadEnvironmentScript()
 
 void CMapEnvironmentPage::OnSaveEnvironmentScript()
 {
-	DWORD dwFlag = OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR;
+	DWORD dwFlag = OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR | OFN_ENABLESIZING;
 	const char* c_szFilter = "Metin2 Environment Script Files (*.msenv)|*.msenv|All Files (*.*)|*.*|";
 
 	CFileDialog FileOpener (FALSE, "Save", "", dwFlag, c_szFilter, this);
@@ -703,7 +703,7 @@ void CMapEnvironmentPage::OnCheckLightpositionedit()
 
 void CMapEnvironmentPage::OnLoadCloudTexture()
 {
-	DWORD dwFlag = OFN_ALLOWMULTISELECT | OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR;
+	DWORD dwFlag = OFN_ALLOWMULTISELECT | OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR | OFN_ENABLESIZING;
 	const char* c_szFilter = "Texture Files (*.tga)|*.tga|All Files (*.*)|*.*|";
 
 	CFileDialog FileOpener (TRUE, "Load", "", dwFlag, c_szFilter, this);
@@ -773,7 +773,7 @@ void CMapEnvironmentPage::OnCheckMainFlareEnable()
 
 void CMapEnvironmentPage::OnLoadLensFlareTexture()
 {
-	DWORD dwFlag = OFN_ALLOWMULTISELECT | OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR;
+	DWORD dwFlag = OFN_ALLOWMULTISELECT | OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR | OFN_ENABLESIZING;
 	const char* c_szFilter = "Texture Files (*.tga)|*.tga|All Files (*.*)|*.*|";
 
 	CFileDialog FileOpener (TRUE, "Load", "", dwFlag, c_szFilter, this);
@@ -809,7 +809,7 @@ void CMapEnvironmentPage::SetSkyBoxTexture (int iFaceIndex)
 
 	if (pAccessor)
 	{
-		DWORD dwFlag = OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR;
+		DWORD dwFlag = OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR | OFN_ENABLESIZING;
 		const char* c_szFilter = "Texture Files (*.dds;*.jpg)|*.dds;*.jpg|All Files (*.*)|*.*|";
 		CFileDialog FileOpener (TRUE, "Load", "", dwFlag, c_szFilter, this);
 

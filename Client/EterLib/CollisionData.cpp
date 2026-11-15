@@ -232,7 +232,7 @@ const TSphereData & CSphereCollisionInstance::GetAttribute() const
 void CSphereCollisionInstance::Render(D3DFILLMODE d3dFillMode)
 {
 	static CScreen s;
-	STATEMANAGER.SetRenderState(D3DRS_TEXTUREFACTOR, 0xffffffff);
+	STATEMANAGER.SetRenderState(D3DRS_TEXTUREFACTOR, 0xffffff00);
 	s.RenderSphere(nullptr, m_attribute.v3Position.x, m_attribute.v3Position.y, m_attribute.v3Position.z, m_attribute.fRadius, d3dFillMode);
 }
 
@@ -385,7 +385,17 @@ D3DXVECTOR3 CPlaneCollisionInstance::OnGetCollisionMovementAdjust(const CDynamic
 void CPlaneCollisionInstance::Render(D3DFILLMODE /*d3dFillMode*/)
 {
 	static CScreen s;
+	const float fAbsX = fabsf(m_attribute.v3Normal.x);
+	const float fAbsY = fabsf(m_attribute.v3Normal.y);
+	const float fAbsZ = fabsf(m_attribute.v3Normal.z);
+	// A floor is the plane you walk on. Walls stay the v59 blue.
+	const DWORD dwColor = (fAbsZ >= fAbsX && fAbsZ >= fAbsY) ? 0xff00ff00 : 0xff3232ff;
+	STATEMANAGER.SaveTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TFACTOR);
+	STATEMANAGER.SaveTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
+	STATEMANAGER.SetRenderState(D3DRS_TEXTUREFACTOR, dwColor);
 	s.RenderBar3d(m_attribute.v3QuadPosition);
+	STATEMANAGER.RestoreTextureStageState(0, D3DTSS_COLOROP);
+	STATEMANAGER.RestoreTextureStageState(0, D3DTSS_COLORARG1);
 }
 
 void CPlaneCollisionInstance::OnDestroy()
@@ -496,8 +506,8 @@ D3DXVECTOR3 CCylinderCollisionInstance::OnGetCollisionMovementAdjust(const CDyna
 void CCylinderCollisionInstance::Render(D3DFILLMODE d3dFillMode)
 {
 	static CScreen s;
-	STATEMANAGER.SetRenderState(D3DRS_TEXTUREFACTOR, 0xffffffff);
-	s.RenderCylinder(nullptr, m_attribute.v3Position.x, m_attribute.v3Position.y, m_attribute.v3Position.z+m_attribute.fHeight/2, m_attribute.fRadius, m_attribute.fHeight, d3dFillMode);
+	STATEMANAGER.SetRenderState(D3DRS_TEXTUREFACTOR, 0xff00ffff);
+	s.RenderCylinder(nullptr, m_attribute.v3Position.x, m_attribute.v3Position.y, m_attribute.v3Position.z+m_attribute.fHeight*0.5f, m_attribute.fRadius, m_attribute.fHeight, d3dFillMode);
 }
 
 void CCylinderCollisionInstance::OnDestroy()
@@ -643,8 +653,12 @@ D3DXVECTOR3 CAABBCollisionInstance::OnGetCollisionMovementAdjust(const CDynamicS
 void CAABBCollisionInstance::Render(D3DFILLMODE d3dFillMode)
 {
 	static CScreen s;
-	STATEMANAGER.SetRenderState(D3DRS_TEXTUREFACTOR, 0xffffffff);
+	STATEMANAGER.SaveTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TFACTOR);
+	STATEMANAGER.SaveTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
+	STATEMANAGER.SetRenderState(D3DRS_TEXTUREFACTOR, 0xffff32ff);
 	s.RenderCube(m_attribute.v3Min.x, m_attribute.v3Min.y, m_attribute.v3Min.z, m_attribute.v3Max.x, m_attribute.v3Max.y, m_attribute.v3Max.z);
+	STATEMANAGER.RestoreTextureStageState(0, D3DTSS_COLOROP);
+	STATEMANAGER.RestoreTextureStageState(0, D3DTSS_COLORARG1);
 	return;
 }
 
@@ -742,8 +756,12 @@ D3DXVECTOR3 COBBCollisionInstance::OnGetCollisionMovementAdjust(const CDynamicSp
 void COBBCollisionInstance::Render(D3DFILLMODE d3dFillMode)
 {
 	static CScreen s;
-	STATEMANAGER.SetRenderState(D3DRS_TEXTUREFACTOR, 0xffffffff);
+	STATEMANAGER.SaveTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TFACTOR);
+	STATEMANAGER.SaveTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
+	STATEMANAGER.SetRenderState(D3DRS_TEXTUREFACTOR, 0xffffff32);
 	s.RenderCube(m_attribute.v3Min.x, m_attribute.v3Min.y, m_attribute.v3Min.z, m_attribute.v3Max.x, m_attribute.v3Max.y, m_attribute.v3Max.z, m_attribute.matRot);
+	STATEMANAGER.RestoreTextureStageState(0, D3DTSS_COLOROP);
+	STATEMANAGER.RestoreTextureStageState(0, D3DTSS_COLORARG1);
 	return;
 }
 

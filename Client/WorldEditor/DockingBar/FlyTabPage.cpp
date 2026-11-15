@@ -527,7 +527,7 @@ void CFlyTabPage::OnFlyTabNewObject()
 
 void CFlyTabPage::OnFlyLoadBombEffect()
 {
-	DWORD dwFlag = OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT;
+	DWORD dwFlag = OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR | OFN_ENABLESIZING;
 	const char* c_szFilter = "Metin 2 Effect Script (*.mse)|*.mse|All Files (*.*)|*.*|";
 
 	CFileDialog FileOpener (TRUE, "Load", "", dwFlag, c_szFilter, this);
@@ -646,7 +646,7 @@ void CFlyTabPage::OnFlyLoadAttachFile()
 	CFlyingData * pData = pFly->GetFlyingDataPointer();
 	CFlyingData::TFlyingAttachData & rfad = pData->GetAttachDataReference (m_iSelectIndex);
 
-	DWORD dwFlag = OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT;
+	DWORD dwFlag = OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR | OFN_ENABLESIZING;
 	const char* c_szFilter;
 
 	switch (rfad.iType)
@@ -799,7 +799,7 @@ BOOL CFlyTabPage::OnNotify (WPARAM wParam, LPARAM lParam, LRESULT* pResult)
 
 void CFlyTabPage::OnFlySaveScript()
 {
-	DWORD dwFlag = OFN_ALLOWMULTISELECT | OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT;
+	DWORD dwFlag = OFN_ALLOWMULTISELECT | OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR | OFN_ENABLESIZING;
 	const char* c_szFilter = "Metin2 Fly Script Files (*.msf)|*.msf|All Files (*.*)|*.*|";
 
 	CFileDialog FileOpener (FALSE, "Save", "", dwFlag, c_szFilter, this);
@@ -816,7 +816,7 @@ void CFlyTabPage::OnFlySaveScript()
 
 void CFlyTabPage::OnFlyLoadScript()
 {
-	DWORD dwFlag = OFN_HIDEREADONLY;
+	DWORD dwFlag = OFN_HIDEREADONLY | OFN_NOCHANGEDIR | OFN_ENABLESIZING;
 	const char* c_szFilter = "Metin2 Fly Script Files (*.msf)|*.msf|All Files (*.*)|*.*|";
 	CFileDialog FileOpener (TRUE, "Load", "", dwFlag, c_szFilter, this);
 

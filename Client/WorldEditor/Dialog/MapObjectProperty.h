@@ -62,7 +62,7 @@ class CMapObjectProperty : public CDialog
 		// Generated message map functions
 		//{{AFX_MSG(CMapObjectProperty)
 		virtual BOOL OnInitDialog();
-		afx_msg void OnTimer (UINT nIDEvent);
+		afx_msg void OnTimer (UINT_PTR nIDEvent);
 		afx_msg void OnChangePropertyType();
 		//}}AFX_MSG
 		DECLARE_MESSAGE_MAP()

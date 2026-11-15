@@ -96,6 +96,7 @@ IDB_MAP_TERRAIN_BRUSH_NOISE         BITMAP  "res\\map_terrain_brush_noise.bmp"
 IDB_MAP_TERRAIN_BRUSH_SMOOTH        BITMAP  "res\\map_terrain_brush_smooth.bmp"
 IDB_MAP_TERRAIN_BRUSH_SHAPE_CIRCLE  BITMAP  "res\\map_terrain_brush_shape_circle.bmp"
 IDB_MAP_TERRAIN_BRUSH_SHAPE_SQUARE  BITMAP  "res\\map_terrain_brush_shape_square.bmp"
+IDB_MAP_TERRAIN_BRUSH_SHAPE_TRIANGLE BITMAP  "res\\map_terrain_brush_shape_triangle.bmp"
 IDB_MAP_OBJECT_TREE_ITEM_IMAGE_LIST BITMAP  "res\\TreeItemImageList.bmp"
 IDB_MAP_FILE                        BITMAP  "res\\map_file.bmp"
 IDB_EFFECT_TIME_BAR_ENABLE          BITMAP  "res\\effect_timebar_enable.bmp"
@@ -165,6 +166,39 @@ BEGIN
     POPUP "Help (&H)"
     BEGIN
         MENUITEM "WorldEditor Info (&A)...",       ID_APP_ABOUT
+    END
+    POPUP "Interface (&I)"
+    BEGIN
+        POPUP "Color"
+        BEGIN
+            MENUITEM "Default",                     ID_INTERFACE_COLOR_LIGHT
+            MENUITEM "Dark",                        ID_INTERFACE_COLOR_DARK
+            MENUITEM "Blue",                        ID_INTERFACE_COLOR_BLUE
+            MENUITEM "Warm",                        ID_INTERFACE_COLOR_WARM
+            MENUITEM "Forest",                      ID_INTERFACE_COLOR_FOREST
+            MENUITEM "Slate",                       ID_INTERFACE_COLOR_SLATE
+            POPUP "Custom"
+            BEGIN
+                MENUITEM "Interface",               ID_INTERFACE_CUSTOM_PANEL
+                MENUITEM "Text",                    ID_INTERFACE_CUSTOM_TEXT
+            END
+        END
+        POPUP "Font"
+        BEGIN
+            MENUITEM "Default",                     ID_INTERFACE_FONT_DEFAULT
+            MENUITEM "Segoe UI",                    ID_INTERFACE_FONT_SEGOE
+            MENUITEM "Tahoma",                      ID_INTERFACE_FONT_TAHOMA
+            MENUITEM "Verdana",                     ID_INTERFACE_FONT_VERDANA
+            MENUITEM "Consolas",                    ID_INTERFACE_FONT_CONSOLAS
+            MENUITEM "Georgia",                     ID_INTERFACE_FONT_GEORGIA
+        END
+        POPUP "Size"
+        BEGIN
+            MENUITEM "Default",                     ID_INTERFACE_SIZE_DEFAULT
+            MENUITEM "8",                           ID_INTERFACE_SIZE_8
+            MENUITEM "9",                           ID_INTERFACE_SIZE_9
+            MENUITEM "10",                          ID_INTERFACE_SIZE_10
+        END
     END
 END
 
@@ -688,6 +722,8 @@ BEGIN
                     "Button",BS_AUTOCHECKBOX | BS_BITMAP | BS_PUSHLIKE | WS_TABSTOP,17,30,17,19
     CONTROL         "Brush Shape Square",IDC_MAP_TERRAIN_BRUSH_SHAPE_SQUARE,
                     "Button",BS_AUTOCHECKBOX | BS_BITMAP | BS_PUSHLIKE | WS_TABSTOP,34,30,17,19
+    CONTROL         "Brush Shape Triangle",IDC_MAP_TERRAIN_BRUSH_SHAPE_TRIANGLE,
+                    "Button",BS_AUTOCHECKBOX | BS_BITMAP | BS_PUSHLIKE | WS_TABSTOP,51,30,17,19
     CONTROL         "Slider1",IDC_MAP_TERRAIN_SCALE,"msctls_trackbar32",TBS_BOTH | TBS_NOTICKS | WS_TABSTOP,33,54,55,10
     LTEXT           "Scale",IDC_STATIC,10,54,19,8
     CONTROL         "Slider1",IDC_MAP_TERRAIN_SCALE2,"msctls_trackbar32",TBS_BOTH | TBS_NOTICKS | WS_TABSTOP,33,68,55,10
@@ -762,70 +798,65 @@ BEGIN
     PUSHBUTTON      "Delete",IDD_MAP_OBJECT_DELETE_PORTAL_NUMBER,63,653,43,12
 END
 
-IDD_MAP_FILE DIALOGEX 0, 0, 120, 656
+IDD_MAP_FILE DIALOGEX 0, 0, 120, 640
 STYLE DS_SETFONT | WS_CHILD
-FONT 9, "Arial", 0, 0, 0x1
+FONT 9, "Tahoma", 0, 0, 0x1
 BEGIN
-        GROUPBOX        "",                         IDC_STATIC, 3,    5,      114,    80
-        GROUPBOX        "",                         IDC_STATIC, 3,    89,     114,    190
-        GROUPBOX        "Start Position",           IDC_STATIC, 9,    141,    101,    72
-        GROUPBOX        "Environment Variables",    IDC_STATIC, 9,    220,    101,    51
-        PUSHBUTTON      "Load",                     IDC_MAP_FILE_LOAD,                                                          44,32,30,12,BS_CENTER | BS_VCENTER | BS_NOTIFY | BS_FLAT
-        PUSHBUTTON      "Save",                     IDC_MAP_FILE_SAVE,                                                          79,32,30,12,BS_CENTER | BS_VCENTER | BS_NOTIFY | BS_FLAT
-        CTEXT           "",                         IDC_MAP_SCRIPT_NAME_PRINT,                                                  38,16,70,11,SS_CENTERIMAGE | SS_SUNKEN
-        LTEXT           "Name",                     IDC_STATIC,                                                                 13,17,20,8
-        LTEXT           "Cell Size",                IDC_STATIC,                                                                 11,114,31,8
-        LTEXT           "Terrain View Radius",      IDC_STATIC,                                                                 11,102,54,8
-        LTEXT           "Maximum Height",           IDC_STATIC,                                                                 11,127,31,8
-        RTEXT           "0.00 meters",              IDC_STATIC_VIEW_RADIUS,                                                     69,101,40,8,0,WS_EX_RIGHT
-        RTEXT           "0.00 meters",              IDC_STATIC_WORLD_SCALE,                                                     66,114,43,8,0,WS_EX_RIGHT
-        RTEXT           "0.00 meters",              IDC_STATIC_MAX_HEIGHT,                                                      56,126,53,8,0,WS_EX_RIGHT
-        PUSHBUTTON      "Change Start Position",    IDC_BUTTON_CHANGE_BASEXY,                                                   19,192,80,14,BS_CENTER | BS_VCENTER | BS_FLAT
-        PUSHBUTTON      "Save As",                  IDC_MAP_FILE_SAVEAS,                                                        67,68,40,12,BS_NOTIFY | BS_FLAT | WS_DISABLED
-        EDITTEXT                                    IDC_SAVEAS_FILENAME,                                                        13,50,94,13,ES_AUTOHSCROLL | WS_DISABLED
-        PUSHBUTTON      "New",                      IDC_MAP_FILE_NEW,                                                           9,32,30,12,BS_CENTER | BS_VCENTER | BS_FLAT
-        CONTROL         "Auto Save",                IDC_MAP_FILE_AUTO_SAVE,                     "Button",   BS_AUTOCHECKBOX | WS_TABSTOP,   9,    68,      55,    12
-
-
-        CTEXT           "X",                        IDC_STATIC,20,157,8,8,SS_CENTERIMAGE | NOT WS_GROUP
-        CTEXT           "Y",                        IDC_STATIC,20,175,8,8,SS_CENTERIMAGE | NOT WS_GROUP
-        RTEXT           "0 cm",                     IDC_STATIC_BASEX,35,157,64,8,0,WS_EX_RIGHT
-        RTEXT           "0 cm",                     IDC_STATIC_BASEY,35,175,64,8,0,WS_EX_RIGHT
-        CTEXT           "None",                     IDC_STATIC_ENVIRONMENT_SET,16,233,89,12,SS_CENTERIMAGE
-        PUSHBUTTON      "Set Environment Variables",IDC_BUTTON_SELECTE_ENVIRONMENT_SET, 14,250,90,14,BS_CENTER | BS_VCENTER | BS_FLAT
-
-
-    /* - Utiliy buttons --------------------------------------- */
-        GROUPBOX        "Utility",                  IDC_STATIC,                         3, 291, 114, 160
-        PUSHBUTTON      "Goto (Alt+G)",             IDC_BUTTON_GOTO,                    19, 305, 80, 12, BS_CENTER | BS_VCENTER | BS_FLAT
-        PUSHBUTTON      "Reset Base Texture",       IDC_BUTTON_INIT_BASETEXTUREMAP,     19, 321, 80, 14, BS_CENTER | BS_VCENTER | BS_FLAT
-        PUSHBUTTON      "Reset All Shadow Maps",    IDC_BUTTON_INIT_SHADOWMAP,          19, 339, 80, 14, BS_CENTER | BS_VCENTER | BS_FLAT
-        PUSHBUTTON      "Reset All Attribute Maps", IDC_MAP_FILE_SAVE_ATTRMAP,          19, 357, 80, 14, BS_CENTER | BS_VCENTER | BS_FLAT
-        PUSHBUTTON      "Save Collision Data",      IDC_MAP_FILE_SAVE_COLLISION_DATA,   19, 375, 80, 14, BS_CENTER | BS_VCENTER | BS_FLAT
-        PUSHBUTTON      "Save server_attr",         IDC_MAP_FILE_SAVE_SERVER_ATTR,      19, 393, 80, 14, BS_CENTER | BS_VCENTER | BS_FLAT
-        PUSHBUTTON      "Save Full Map",            IDC_BUTTON_SAVE_ATLAS,              19, 411, 80, 14, BS_CENTER | BS_VCENTER | BS_FLAT
-        PUSHBUTTON      "Update Terrain Height",    IDC_BUTTON_CHANGE_TERRAIN_HEIGHT,   19, 429, 80, 14, BS_CENTER | BS_VCENTER | BS_FLAT
-    /* ----------------------------------------------------- */
-
-    /* - Option checkboxes --------------------------------------- */
-        GROUPBOX        "Option",                   IDC_STATIC,                                                                             3,    456,    114,   169
-        CONTROL         "Wire Frame",               IDC_MAP_TERRAIN_OPTION_WIRE_FRAME,          "Button",   BS_AUTOCHECKBOX | WS_TABSTOP,   9,    467,     95,    10
-        CONTROL         "Map Boundary Grid",        IDC_CHECK_GRID2,                            "Button",   BS_AUTOCHECKBOX | WS_TABSTOP,   9,    478,     95,    10
-        CONTROL         "Render Water",             IDC_CHECK_WATER,                            "Button",   BS_AUTOCHECKBOX | WS_TABSTOP,   9,    489,     95,    10
-        CONTROL         "Render Character",         IDC_CHECK_CHARACTER,                        "Button",   BS_AUTOCHECKBOX | WS_TABSTOP,   9,    500,     95,    10
-        CONTROL         "Render Object",            IDC_MAP_TERRAIN_OPTION_OBJECT,              "Button",   BS_AUTOCHECKBOX | WS_TABSTOP,   9,    511,     95,    10
-        CONTROL         "Render Object Collisions", IDC_MAP_TERRAIN_OPTION_OBJECT_COLLISION,    "Button",   BS_AUTOCHECKBOX | WS_TABSTOP,   9,    522,     95,    10
-        CONTROL         "Render Object Shadows",    IDC_MAP_TERRAIN_OPTION_OBJECT_SHADOW,       "Button",   BS_AUTOCHECKBOX | WS_TABSTOP,   9,    533,     95,    10
-        CONTROL         "Apply Fake Portal",        IDC_MAP_TERRAIN_OPTION_FAKE_PORTAL_ENABLE,  "Button",   BS_AUTOCHECKBOX | WS_TABSTOP,   9,    544,     95,    10
-        CONTROL         "View Fake Portal ID List", IDC_MAP_TERRAIN_OPTION_FAKE_PORTAL_ID_LIST, "Button",   BS_AUTOCHECKBOX | WS_TABSTOP,   9,    555,     95,    10
-        CONTROL         "View Guild Area",          IDC_MAP_TERRAIN_GUILD_AREA,                 "Button",   BS_AUTOCHECKBOX | WS_TABSTOP,   9,    566,     95,    10
-        CONTROL         "10 Meter Grid",            IDC_CHECK_GRID,                             "Button",   BS_AUTOCHECKBOX | WS_TABSTOP,   9,    577,     95,    10
-        CONTROL         "Patch Grid",               IDC_CHECK_PATCH_GRID,                       "Button",   BS_AUTOCHECKBOX | WS_TABSTOP,   9,    588,     95,    10
-        CONTROL         "Render Compass",           IDC_CHECK_COMPASS,                          "Button",   BS_AUTOCHECKBOX | WS_TABSTOP,   9,    599,     95,    10
-        CONTROL         "Render Terrain",           IDC_MAP_TERRAIN_OPTION_TERRAIN,             "Button",   BS_AUTOCHECKBOX | WS_TABSTOP,   9,    610,     95,    10
-        PUSHBUTTON      "Reload Map",               IDC_MAP_FILE_RELOAD,                    9, 632, 50, 14, BS_CENTER | BS_VCENTER | BS_FLAT
-        PUSHBUTTON      "Export Map",               IDC_MAP_FILE_EXPORT,                    62, 632, 50, 14, BS_CENTER | BS_VCENTER | BS_FLAT
-    /* ----------------------------------------------------- */
+        GROUPBOX        "",                         IDC_STATIC, 3, 5, 114, 80
+        GROUPBOX        "",                         IDC_STATIC, 3, 89, 114, 190
+        GROUPBOX        "Starting Point",           IDC_STATIC, 9, 141, 101, 72
+        GROUPBOX        "Environment Variable",     IDC_STATIC, 9, 220, 101, 51
+        PUSHBUTTON      "Load",                     IDC_MAP_FILE_LOAD, 44, 32, 30, 12, BS_CENTER | BS_VCENTER | BS_NOTIFY | BS_FLAT
+        PUSHBUTTON      "Save",                     IDC_MAP_FILE_SAVE, 79, 32, 30, 12, BS_CENTER | BS_VCENTER | BS_NOTIFY | BS_FLAT
+        PUSHBUTTON      "New",                      IDC_MAP_FILE_NEW, 9, 32, 30, 12, BS_CENTER | BS_VCENTER | BS_FLAT
+        PUSHBUTTON      "Close",                    IDC_MAP_FILE_CLOSE, 9, 48, 30, 12, BS_CENTER | BS_VCENTER | BS_NOTIFY | BS_FLAT
+        PUSHBUTTON      "Reload",                   IDC_MAP_FILE_RELOAD, 44, 48, 30, 12, BS_CENTER | BS_VCENTER | BS_NOTIFY | BS_FLAT
+        PUSHBUTTON      "Export",                   IDC_MAP_FILE_EXPORT, 79, 48, 30, 12, BS_CENTER | BS_VCENTER | BS_NOTIFY | BS_FLAT
+        CTEXT           "",                         IDC_MAP_SCRIPT_NAME_PRINT, 38, 16, 70, 11, SS_CENTERIMAGE | SS_SUNKEN
+        LTEXT           "Name",                     IDC_STATIC, 13, 17, 20, 8
+        LTEXT           "Cell Size",                IDC_STATIC, 11, 114, 30, 8
+        LTEXT           "Topography",               IDC_STATIC, 11, 102, 40, 8
+        LTEXT           "Max",                      IDC_STATIC, 11, 127, 15, 8
+        RTEXT           "0.00 meter",               IDC_STATIC_VIEW_RADIUS, 69, 101, 40, 8, 0, WS_EX_RIGHT
+        RTEXT           "0.00 meter",               IDC_STATIC_WORLD_SCALE, 66, 114, 43, 8, 0, WS_EX_RIGHT
+        RTEXT           "0.00 meter",               IDC_STATIC_MAX_HEIGHT, 56, 126, 53, 8, 0, WS_EX_RIGHT
+        CONTROL         "AutoSave",                 IDC_MAP_FILE_AUTO_SAVE, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 10, 69, 49, 10
+        CONTROL         "AutoBackup",               IDC_MAP_FILE_AUTO_BACKUP, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 60, 69, 49, 10
+        CTEXT           "X",                        IDC_STATIC, 20, 157, 8, 8, SS_CENTERIMAGE | NOT WS_GROUP
+        CTEXT           "Y",                        IDC_STATIC, 20, 175, 8, 8, SS_CENTERIMAGE | NOT WS_GROUP
+        RTEXT           "0 cm",                     IDC_STATIC_BASEX, 35, 157, 64, 8, 0, WS_EX_RIGHT
+        RTEXT           "0 cm",                     IDC_STATIC_BASEY, 35, 175, 64, 8, 0, WS_EX_RIGHT
+        PUSHBUTTON      "Change BasePosition",      IDC_BUTTON_CHANGE_BASEXY, 19, 192, 76, 14, BS_CENTER | BS_VCENTER | BS_FLAT
+        CTEXT           "None",                     IDC_STATIC_ENVIRONMENT_SET, 16, 233, 89, 12, SS_CENTERIMAGE
+        PUSHBUTTON      "Set Environment var.",     IDC_BUTTON_SELECTE_ENVIRONMENT_SET, 19, 250, 73, 14, BS_CENTER | BS_VCENTER | BS_FLAT
+        GROUPBOX        "Utility",                  IDC_STATIC, 3, 291, 114, 142
+        PUSHBUTTON      "Goto (Alt+G)",             IDC_BUTTON_GOTO, 22, 305, 77, 12, BS_CENTER | BS_VCENTER | BS_FLAT
+        PUSHBUTTON      "Apply Base Texture",       IDC_BUTTON_INIT_BASETEXTUREMAP, 22, 321, 77, 14, BS_CENTER | BS_VCENTER | BS_FLAT
+        PUSHBUTTON      "Save ServerAttr",          IDC_MAP_FILE_SAVE_SERVER_ATTR, 22, 339, 77, 14, BS_CENTER | BS_VCENTER | BS_FLAT
+        PUSHBUTTON      "Save collision Data",      IDC_MAP_FILE_SAVE_COLLISION_DATA, 22, 357, 77, 14, BS_CENTER | BS_VCENTER | BS_FLAT
+        PUSHBUTTON      "Reset Attr Map",           IDC_MAP_FILE_SAVE_ATTRMAP, 22, 375, 77, 14, BS_CENTER | BS_VCENTER | BS_FLAT
+        PUSHBUTTON      "Save Atlasmap/mini",       IDC_BUTTON_SAVE_ATLAS, 22, 393, 77, 14, BS_CENTER | BS_VCENTER | BS_FLAT
+        PUSHBUTTON      "Adjust Terrain Height",    IDC_BUTTON_CHANGE_TERRAIN_HEIGHT, 22, 411, 77, 14, BS_CENTER | BS_VCENTER | BS_FLAT
+        GROUPBOX        "Option",                   IDC_STATIC, 3, 438, 114, 125
+        CONTROL         "Wire Frame",               IDC_MAP_TERRAIN_OPTION_WIRE_FRAME, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 9, 449, 49, 10
+        CONTROL         "10 m Grid",                IDC_CHECK_GRID, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 63, 449, 49, 10
+        CONTROL         "Border Grid",              IDC_CHECK_GRID2, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 9, 460, 49, 10
+        CONTROL         "Patch Grid",               IDC_CHECK_PATCH_GRID, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 63, 460, 49, 10
+        CONTROL         "Water Out",                IDC_CHECK_WATER, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 9, 471, 49, 10
+        CONTROL         "Compass",                  IDC_CHECK_COMPASS, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 63, 471, 49, 10
+        CONTROL         "Char Out",                 IDC_CHECK_CHARACTER, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 9, 482, 49, 10
+        CONTROL         "Terrain Out",              IDC_MAP_TERRAIN_OPTION_TERRAIN, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 63, 482, 49, 10
+        CONTROL         "Object Out",               IDC_MAP_TERRAIN_OPTION_OBJECT, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 9, 493, 49, 10
+        CONTROL         "Tree Out",                 IDC_CHECK_TREE, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 63, 493, 49, 10
+        CONTROL         "Collision Out",            IDC_MAP_TERRAIN_OPTION_OBJECT_COLLISION, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 9, 504, 49, 10
+        CONTROL         "Effect Out",               IDC_CHECK_EFFECT, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 63, 504, 49, 10
+        CONTROL         "Shadow Out",               IDC_MAP_TERRAIN_OPTION_OBJECT_SHADOW, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 9, 515, 49, 10
+        CONTROL         "Ambience Out",             IDC_CHECK_AMBIENCE, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 63, 515, 55, 10
+        CONTROL         "Fake Portal",              IDC_MAP_TERRAIN_OPTION_FAKE_PORTAL_ENABLE, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 9, 526, 49, 10
+        CONTROL         "Fake Portal ID's",         IDC_MAP_TERRAIN_OPTION_FAKE_PORTAL_ID_LIST, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 9, 537, 59, 10
+        CONTROL         "Guild Area",               IDC_MAP_TERRAIN_GUILD_AREA, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 9, 548, 61, 10
+        GROUPBOX        "Special Options",          IDC_STATIC, 3, 570, 114, 30
+        CONTROL         "Data Encryption",          IDC_MAP_FILE_DATA_ENCRYPTION, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 10, 581, 61, 10
 END
 
 IDD_MAP_OBJECT_DIRECTORY DIALOG  0, 0, 145, 37
@@ -1113,16 +1144,22 @@ BEGIN
                     "Button",BS_AUTOCHECKBOX | BS_BITMAP | BS_PUSHLIKE | WS_TABSTOP,7,23,17,19
     CONTROL         "Brush Shape Square",IDC_MAP_ATTR_BRUSH_SHAPE_SQUARE,
                     "Button",BS_AUTOCHECKBOX | BS_BITMAP | BS_PUSHLIKE | WS_TABSTOP,27,23,17,19
+    CONTROL         "Brush Shape Triangle",IDC_MAP_ATTR_BRUSH_SHAPE_TRIANGLE,
+                    "Button",BS_AUTOCHECKBOX | BS_BITMAP | BS_PUSHLIKE | WS_TABSTOP,47,23,17,19
     CONTROL         "Slider1",IDC_MAP_ATTR_SCALE,"msctls_trackbar32",TBS_BOTH | TBS_NOTICKS | WS_TABSTOP,31,53,58,10
     LTEXT           "Scale",IDC_STATIC,5,53,19,8
     EDITTEXT        IDC_MAP_ATTR_SCALE_PRINT,93,51,21,12,ES_CENTER | ES_AUTOHSCROLL | ES_READONLY | NOT WS_BORDER,WS_EX_STATICEDGE
     LTEXT           "Brush Shape",IDC_STATIC,6,7,43,8
     EDITTEXT        IDC_MAP_ATTR_BRUSH_SHAPE_PRINT,63,5,49,12,ES_CENTER | ES_READONLY | NOT WS_BORDER,WS_EX_STATICEDGE
     GROUPBOX        "Attribute Number",IDC_STATIC,9,107,101,84
-    CONTROL         "Block",IDC_MAP_ATTR0_CHECKBOX,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,121,34,10
-    CONTROL         "Water",IDC_MAP_ATTR1_CHECKBOX,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,69,121,34,10
-    CONTROL         "PvP Prohibited",IDC_MAP_ATTR2_CHECKBOX,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,140,39,10
-    CONTROL         "3",IDC_MAP_ATTR3_CHECKBOX,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,69,140,19,10
+    CONTROL         "Block",IDC_MAP_ATTR0_CHECKBOX,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,120,34,10
+    CONTROL         "Water",IDC_MAP_ATTR1_CHECKBOX,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,69,120,34,10
+    CONTROL         "No-PVP",IDC_MAP_ATTR2_CHECKBOX,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,138,42,10
+    CONTROL         "3",IDC_MAP_ATTR3_CHECKBOX,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,69,138,19,10
+    CONTROL         "4",IDC_MAP_ATTR4_CHECKBOX,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,156,19,10
+    CONTROL         "5",IDC_MAP_ATTR5_CHECKBOX,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,69,156,19,10
+    CONTROL         "6",IDC_MAP_ATTR6_CHECKBOX,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,174,19,10
+    CONTROL         "7",IDC_MAP_ATTR7_CHECKBOX,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,69,174,19,10
     GROUPBOX        "MonsterAreaInfo Brush",IDC_STATIC,1,255,117,333
     PUSHBUTTON      "Delete",IDC_BUTTON_MONSTERAREAINFO_REMOVE,61,548,42,14,BS_CENTER | BS_VCENTER | BS_FLAT
     GROUPBOX        "Selected",IDC_STATIC,1,367,117,202
@@ -1157,8 +1194,6 @@ BEGIN
     CONTROL         "Slider1",IDC_MAP_ATTR_SCALEY,"msctls_trackbar32",TBS_BOTH | TBS_NOTICKS | WS_TABSTOP,31,75,58,10
     LTEXT           "YScale",IDC_STATIC,5,75,24,8
     EDITTEXT        IDC_MAP_ATTR_SCALEY_PRINT,93,73,21,12,ES_CENTER | ES_AUTOHSCROLL | ES_READONLY | NOT WS_BORDER,WS_EX_STATICEDGE
-    CONTROL         "Slider1",IDC_SLIDER_ATTR,"msctls_trackbar32",TBS_AUTOTICKS | TBS_BOTH | WS_TABSTOP,13,158,77,28
-    CTEXT           "",IDC_ATTR_NUM,94,164,12,14,SS_CENTERIMAGE
     GROUPBOX        "Event Monster Arrange",IDC_STATIC,5,593,109,121
     LISTBOX         IDC_LIST1,11,606,97,44,LBS_SORT | LBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_TABSTOP
     PUSHBUTTON      "Save",IDC_MAP_ATTR_SAVE_ARRANGE,11,651,45,11,BS_CENTER | BS_VCENTER | BS_FLAT
@@ -1622,16 +1657,12 @@ IDC_VIEWMOVE            CURSOR                  "res\\cursor1.cur"
 
 IDR_MAINFRAME TOOLBAR  16, 15
 BEGIN
-    BUTTON      ID_FILE_NEW
-    BUTTON      ID_FILE_OPEN
-    BUTTON      ID_FILE_SAVE
-    SEPARATOR
-    BUTTON      ID_EDIT_UNDO
-    SEPARATOR
     BUTTON      ID_VIEW_MAP
     BUTTON      ID_VIEW_OBJECT
     BUTTON      ID_VIEW_EFFECT
     BUTTON      ID_VIEW_FLY
+    BUTTON      ID_EDIT_UNDO
+    BUTTON      ID_EDIT_REDO
 END
 
 

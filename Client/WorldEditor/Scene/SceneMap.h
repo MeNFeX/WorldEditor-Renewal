@@ -34,6 +34,7 @@ class CSceneMap : public CSceneBase
 		void Initialize();
 		void CreateEnvironment();
 		void SetMapManagerAccessor (CMapManagerAccessor * pMapManagerAccessor);
+		void SaveAtlasAndMiniMaps();
 
 		void SetEditingMode (int iMode);
 

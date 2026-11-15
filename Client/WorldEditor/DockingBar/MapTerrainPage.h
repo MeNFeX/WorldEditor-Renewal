@@ -63,6 +63,7 @@ class CMapTerrainPage : public CPageCtrl
 		//	char szAlphaScaleText[16];
 
 		void UpdateBrushShape();
+		void SelectBrushShapeButton (int nId);
 		void UpdateBrushType();
 		void UpdateBrushApply();
 		void UpdateBrushSize();
@@ -73,6 +74,7 @@ class CMapTerrainPage : public CPageCtrl
 		//{{AFX_MSG(CMapTerrainPage)
 		afx_msg void OnSelectBrushShapeCircle();
 		afx_msg void OnSelectBrushShapeSquare();
+		afx_msg void OnSelectBrushShapeTriangle();
 		afx_msg void OnSelectBrushTypeUp();
 		afx_msg void OnSelectBrushTypeDown();
 		afx_msg void OnSelectBrushTypePlateau();
@@ -116,6 +118,7 @@ class CMapTerrainPage : public CPageCtrl
 
 		CBitmap m_BitmapBrushShapeCircle;
 		CBitmap m_BitmapBrushShapeSquare;
+		CBitmap m_BitmapBrushShapeTriangle;
 		CButton m_btnWaterSet0;
 		CButton m_btnWaterPlus;
 		CButton m_btnWaterMinus;

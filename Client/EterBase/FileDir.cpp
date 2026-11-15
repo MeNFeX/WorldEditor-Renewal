@@ -2,6 +2,43 @@
 #include "FileDir.h"
 #include <string>
 
+namespace
+{
+	std::wstring FilenameToWide(const char* filename)
+	{
+		if (!filename || !*filename)
+			return std::wstring();
+
+		int n = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, filename, -1, nullptr, 0);
+		UINT cp = CP_UTF8;
+		if (n <= 0)
+		{
+			cp = CP_ACP;
+			n = MultiByteToWideChar(CP_ACP, 0, filename, -1, nullptr, 0);
+		}
+		if (n <= 1)
+			return std::wstring();
+
+		std::wstring out(static_cast<size_t>(n - 1), L'\0');
+		MultiByteToWideChar(cp, cp == CP_UTF8 ? MB_ERR_INVALID_CHARS : 0, filename, -1, &out[0], n);
+		return out;
+	}
+
+	std::string WideToUtf8(const wchar_t* text)
+	{
+		if (!text || !*text)
+			return std::string();
+
+		const int n = WideCharToMultiByte(CP_UTF8, 0, text, -1, nullptr, 0, nullptr, nullptr);
+		if (n <= 1)
+			return std::string();
+
+		std::string out(static_cast<size_t>(n - 1), '\0');
+		WideCharToMultiByte(CP_UTF8, 0, text, -1, &out[0], n, nullptr, nullptr);
+		return out;
+	}
+}
+
 CDir::CDir()
 {
 	Initialize();
@@ -24,39 +61,42 @@ bool CDir::Create(const char * c_szFilter, const char* c_szPath, BOOL bCheckedEx
 {
 	Destroy();
 
-	std::string stPath = c_szPath;
+	std::wstring stPath = FilenameToWide(c_szPath);
 
-	if (stPath.length())
+	if (!stPath.empty())
 	{
-		const char end = stPath[stPath.length() - 1];
+		const wchar_t end = stPath[stPath.length() - 1];
 
-		if (end != '\\')
-			stPath+='\\';
+		if (end != L'\\' && end != L'/')
+			stPath += L'\\';
 	}
 
-	std::string stQuery;
-	stQuery += stPath;
-	stQuery += "*.*";
-
-	m_wfd.dwFileAttributes |= FILE_ATTRIBUTE_DIRECTORY;
-	m_hFind = FindFirstFile(stQuery.c_str(), &m_wfd);
+	const std::wstring stQuery = stPath + L"*.*";
+	WIN32_FIND_DATAW wfd;
+	memset(&wfd, 0, sizeof(wfd));
+	m_hFind = FindFirstFileW(stQuery.c_str(), &wfd);
 
 	if (m_hFind == INVALID_HANDLE_VALUE)
 		return true;
 
+	const std::string stPathUtf8 = WideToUtf8(stPath.c_str());
+
 	do
 	{
-		if (*m_wfd.cFileName == '.')
+		if (wfd.cFileName[0] == L'.')
 			continue;
+
+		m_wfd.dwFileAttributes = wfd.dwFileAttributes;
+		const std::string stName = WideToUtf8(wfd.cFileName);
 
 		if (IsFolder())
 		{
-			if (!OnFolder(c_szFilter, stPath.c_str(), m_wfd.cFileName))
+			if (!OnFolder(c_szFilter, stPathUtf8.c_str(), stName.c_str()))
 				return false;
 		}
 		else
 		{
-			const char * c_szExtension = strchr(m_wfd.cFileName, '.');
+			const char * c_szExtension = strchr(stName.c_str(), '.');
 			if (!c_szExtension)
 				continue;
 
@@ -78,11 +118,11 @@ bool CDir::Create(const char * c_szFilter, const char* c_szPath, BOOL bCheckedEx
 				}
 			}
 
-			if (!OnFile(stPath.c_str(), m_wfd.cFileName))
+			if (!OnFile(stPathUtf8.c_str(), stName.c_str()))
 				return false;
 		}
 	}
-	while (FindNextFile(m_hFind, &m_wfd));
+	while (FindNextFileW(m_hFind, &wfd));
 
 	return true;
 }

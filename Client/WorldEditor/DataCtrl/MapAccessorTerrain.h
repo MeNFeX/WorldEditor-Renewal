@@ -10,7 +10,8 @@ class CTerrainAccessor : public CTerrain
 			BRUSH_SHAPE_NONE	= 0,
 			BRUSH_SHAPE_CIRCLE	= 1 << 0,
 			BRUSH_SHAPE_SQUARE	= 1 << 1,
-			BRUSH_SHAPE_MAX		= 2,
+			BRUSH_SHAPE_TRIANGLE = 1 << 2,
+			BRUSH_SHAPE_MAX		= 3,
 		};
 
 		enum EBrushType
@@ -82,6 +83,8 @@ class CTerrainAccessor : public CTerrain
 		bool RAW_SaveTileMap (const std::string & c_rstrMapName);
 		bool SaveAttrMap (const std::string & c_rstrMapName);
 		bool SaveWaterMap (const std::string & c_rstrMapName);
+		bool SetWaterHeightAll (long lHeight);
+		static bool SaveTextureToImageFile (LPDIRECT3DTEXTURE9 pTexture, const char * c_szFileName, D3DXIMAGE_FILEFORMAT eFormat);
 		bool SaveShadowFromD3DTexture9 (const std::string & c_rstrMapName, LPDIRECT3DTEXTURE9 lpShadowTexture);
 		bool SaveMiniMapFromD3DTexture9 (const std::string & c_rstrMapName, LPDIRECT3DTEXTURE9 lpShadowTexture);
 		bool ReloadShadowTexture (const std::string & c_rstrMapName);

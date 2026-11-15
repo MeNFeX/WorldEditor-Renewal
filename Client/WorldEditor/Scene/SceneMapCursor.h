@@ -99,6 +99,7 @@ class CCursorRenderer : public CScreen
 
 		void RenderCursorSquare (float fxStart, float fyStart, float fxEnd, float fyEnd, int iStep = 50);
 		void RenderCursorCircle (float fx, float fy, float fz, float fRadius, int iStep = 50);
+		void RenderCursorTriangle (float fx, float fy, float fRadius, int iStep = 50);
 
 	protected:
 		void __Initialize();

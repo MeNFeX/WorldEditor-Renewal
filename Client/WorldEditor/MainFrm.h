@@ -16,6 +16,19 @@
 #include "./ToolBar/ToolBar256.h"
 #include "./ToolBar/ToolBarFile.h"
 
+class CEditorStatusBar : public CStatusBar
+{
+	public:
+		CEditorStatusBar() : m_bFitting (false) {}
+		void FitToWidth (int cx);
+
+	protected:
+		afx_msg void OnSize (UINT nType, int cx, int cy);
+		DECLARE_MESSAGE_MAP()
+
+		bool m_bFitting;
+};
+
 class CMainFrame : public CFrameWnd
 {
 	protected: // create from serialization only
@@ -36,6 +49,7 @@ class CMainFrame : public CFrameWnd
 		void UpdateFlyControlBar();
 
 		void RunLoadMapEvent();
+		void AcceptMapFolderDrop (HDROP hDrop);
 
 		void PlayEffect();
 
@@ -56,15 +70,20 @@ class CMainFrame : public CFrameWnd
 		#endif
 
 		void UpdateStatusBar (float fx, float fy, float fz);
+		void SetFrameTime (float fFrameMs);
+		float GetFrameMs() const { return m_fFrameMs; }
+		void SetAutoSaveStatus (const char * c_szMessage);
 
 	protected:  // control bar embedded members
-		CStatusBar			m_wndStatusBar;
+		CEditorStatusBar	m_wndStatusBar;
 		CToolBarFile		m_wndFileToolBar;
 
 		CMapCtrlBar			m_wndMapCtrlBar;
 		CObjectCtrlBar		m_wndObjectCtrlBar;
 		CEffectCtrlBar		m_wndEffectCtrlBar;
 		CFlyCtrlBar			m_wndFlyCtrlBar;
+		CString				m_strSaveStatus;
+		float				m_fFrameMs;
 
 		// Generated message map functions
 	protected:
@@ -77,6 +96,14 @@ class CMainFrame : public CFrameWnd
 		afx_msg int OnCreate (LPCREATESTRUCT lpCreateStruct);
 		afx_msg void OnUndo();
 		afx_msg void OnRedo();
+		afx_msg void OnInterfaceColor (UINT nId);
+		afx_msg void OnUpdateInterfaceColor (CCmdUI * pCmdUI);
+		afx_msg void OnInterfaceCustomPanel();
+		afx_msg void OnInterfaceCustomText();
+		afx_msg void OnInterfaceFont (UINT nId);
+		afx_msg void OnUpdateInterfaceFont (CCmdUI * pCmdUI);
+		afx_msg void OnInterfaceFontSize (UINT nId);
+		afx_msg void OnUpdateInterfaceFontSize (CCmdUI * pCmdUI);
 		//}}AFX_MSG
 		DECLARE_MESSAGE_MAP()
 };

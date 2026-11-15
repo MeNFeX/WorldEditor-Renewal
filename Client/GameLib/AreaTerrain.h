@@ -103,6 +103,9 @@ class CTerrain : public CTerrainImpl, public CGraphicBase
 
 	protected:
 		bool	Initialize();
+#ifdef WORLD_EDITOR
+		void	UploadShadowTextureFromRaw();
+#endif
 		void	RAW_AllocateSplats(bool bBGLoading = false);
 		void	RAW_DeallocateSplats(bool bBGLoading = false);
 		virtual void RAW_CountTiles();
@@ -123,6 +126,9 @@ class CTerrain : public CTerrainImpl, public CGraphicBase
 		bool					m_bReady;
 
 		CGraphicImageInstance	m_ShadowGraphicImageInstance;
+#ifdef WORLD_EDITOR
+		LPDIRECT3DTEXTURE9		m_lpOwnedShadowTexture;
+#endif
 
 		//MiniMap
 		CGraphicImageInstance	m_MiniMapGraphicImageInstance;

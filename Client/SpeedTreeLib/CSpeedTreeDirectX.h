@@ -13,6 +13,11 @@ public:
 	bool						SetRenderingDevice();
 	void                        Render(unsigned long ulRenderBitVector = Forest_RenderAll);
 	void						UpdateCompundMatrix(const D3DXVECTOR3& c_rEyeVec, const D3DXMATRIX& c_rmatView, const D3DXMATRIX& c_rmatProj);
+#ifdef WORLD_EDITOR
+	static void					SetVisibleTreeCount(unsigned int uiCount);
+	static unsigned int			GetVisibleTreeCount();
+	static bool					IsSphereInCamera(float x, float y, float z, float fRadius);
+#endif
 
 private:
 	bool                        InitVertexShaders();

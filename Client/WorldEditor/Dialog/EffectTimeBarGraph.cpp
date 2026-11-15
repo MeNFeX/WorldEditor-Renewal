@@ -146,7 +146,7 @@ void CEffectTimeBarGraph::OnRButtonUp (UINT nFlags, CPoint point)
 	CStatic::OnRButtonUp (nFlags, point);
 }
 
-void CEffectTimeBarGraph::OnTimer (UINT nIDEvent)
+void CEffectTimeBarGraph::OnTimer (UINT_PTR nIDEvent)
 {
 	if (IsWindowVisible())
 	{

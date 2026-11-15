@@ -42,7 +42,6 @@ void CMapAttributePage::DoDataExchange (CDataExchange* pDX)
 {
 	CPageCtrl::DoDataExchange (pDX);
 	//{{AFX_DATA_MAP(CMapAttributePage)
-	DDX_Control (pDX, IDC_SLIDER_ATTR, m_SliderAttrNum);
 	DDX_Control (pDX, IDC_MAP_ATTR_SCALEY_PRINT, m_EditMonsterAreaSizeY);
 	DDX_Control (pDX, IDC_MAP_ATTR_SCALEY, m_SliderMonsterAreaScale);
 	DDX_Control (pDX, IDC_COMBO_SelectedMonsterName, m_ComboSelectedMonsterName);
@@ -73,6 +72,7 @@ BEGIN_MESSAGE_MAP (CMapAttributePage, CPageCtrl)
 	ON_BN_CLICKED (IDC_CHECK_ATTRERASER, OnCheckAttreraser)
 	ON_BN_CLICKED (IDC_MAP_ATTR_BRUSH_SHAPE_CIRCLE, OnMapAttrBrushShapeCircle)
 	ON_BN_CLICKED (IDC_MAP_ATTR_BRUSH_SHAPE_SQUARE, OnMapAttrBrushShapeSquare)
+	ON_BN_CLICKED (IDC_MAP_ATTR_BRUSH_SHAPE_TRIANGLE, OnMapAttrBrushShapeTriangle)
 	ON_WM_HSCROLL()
 	ON_BN_CLICKED (IDC_MAP_ATTR0_CHECKBOX, OnMapAttrCheckbox)
 	ON_BN_CLICKED (IDC_BUTTON_MONSTERAREAINFO_REMOVE, OnButtonMonsterAreaInfoRemove)
@@ -88,6 +88,10 @@ BEGIN_MESSAGE_MAP (CMapAttributePage, CPageCtrl)
 	ON_BN_CLICKED (IDC_MAP_ATTR1_CHECKBOX, OnMapAttrCheckbox)
 	ON_BN_CLICKED (IDC_MAP_ATTR2_CHECKBOX, OnMapAttrCheckbox)
 	ON_BN_CLICKED (IDC_MAP_ATTR3_CHECKBOX, OnMapAttrCheckbox)
+	ON_BN_CLICKED (IDC_MAP_ATTR4_CHECKBOX, OnMapAttrCheckbox)
+	ON_BN_CLICKED (IDC_MAP_ATTR5_CHECKBOX, OnMapAttrCheckbox)
+	ON_BN_CLICKED (IDC_MAP_ATTR6_CHECKBOX, OnMapAttrCheckbox)
+	ON_BN_CLICKED (IDC_MAP_ATTR7_CHECKBOX, OnMapAttrCheckbox)
 	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
@@ -103,26 +107,16 @@ BOOL CMapAttributePage::Create (CWnd * pParent)
 
 	CreateBitmapButton ((CButton*)GetDlgItem (IDC_MAP_ATTR_BRUSH_SHAPE_CIRCLE), IDB_MAP_TERRAIN_BRUSH_SHAPE_CIRCLE, m_BitmapBrushShapeCircle);
 	CreateBitmapButton ((CButton*)GetDlgItem (IDC_MAP_ATTR_BRUSH_SHAPE_SQUARE), IDB_MAP_TERRAIN_BRUSH_SHAPE_SQUARE, m_BitmapBrushShapeSquare);
+	CreateBitmapButton ((CButton*)GetDlgItem (IDC_MAP_ATTR_BRUSH_SHAPE_TRIANGLE), IDB_MAP_TERRAIN_BRUSH_SHAPE_TRIANGLE, m_BitmapBrushShapeTriangle);
 
-	CheckRadioButton (IDC_MAP_ATTR_BRUSH_SHAPE_CIRCLE, IDC_MAP_ATTR_BRUSH_SHAPE_SQUARE, IDC_MAP_ATTR_BRUSH_SHAPE_CIRCLE);
+	CheckDlgButton (IDC_MAP_ATTR_BRUSH_SHAPE_CIRCLE, 1);
+	CheckDlgButton (IDC_MAP_ATTR_BRUSH_SHAPE_SQUARE, 0);
+	CheckDlgButton (IDC_MAP_ATTR_BRUSH_SHAPE_TRIANGLE, 0);
 	CheckRadioButton (IDC_RADIO0, IDC_RADIO7, IDC_RADIO0);
 	CheckDlgButton (IDC_CHECK_SHOW_ALLMONSTERAREAINFO, CWorldEditorConfig::Instance().ViewMonsterAreaInfo() ? 1 : 0);
 
 	m_ctrAttrScale.SetRange (0, 120);
 	m_SliderMonsterAreaScale.SetRange (0, 120);
-	if (CWorldEditorConfig::Instance().AttrSliderRemoval())
-	{
-		m_SliderAttrNum.SetPos (0);
-		m_SliderAttrNum.EnableWindow (FALSE);
-		m_SliderAttrNum.ShowWindow (SW_HIDE);
-		if (CWnd * pAttrNum = GetDlgItem (IDC_ATTR_NUM))
-			pAttrNum->ShowWindow (SW_HIDE);
-	}
-	else
-	{
-		m_SliderAttrNum.SetRange (0, 15);
-		SetDlgItemInt (IDC_ATTR_NUM, m_SliderAttrNum.GetPos(), FALSE);
-	}
 	UpdateBrushSize();
 	UpdateBrushShape();
 
@@ -228,7 +222,9 @@ void CMapAttributePage::UpdateBrushMode()
 	pMapManagerAccessor->SetMonsterAreaInfoEditing (TRUE == IsDlgButtonChecked (IDC_CHECK_MONSTERAREAINFO_ADD));
 	if (TRUE == IsDlgButtonChecked (IDC_CHECK_MONSTERAREAINFO_ADD))
 	{
-		CheckRadioButton (IDC_MAP_ATTR_BRUSH_SHAPE_CIRCLE, IDC_MAP_ATTR_BRUSH_SHAPE_SQUARE, IDC_MAP_ATTR_BRUSH_SHAPE_SQUARE);
+		CheckDlgButton (IDC_MAP_ATTR_BRUSH_SHAPE_CIRCLE, 0);
+		CheckDlgButton (IDC_MAP_ATTR_BRUSH_SHAPE_SQUARE, 1);
+		CheckDlgButton (IDC_MAP_ATTR_BRUSH_SHAPE_TRIANGLE, 0);
 		m_ComboDirection.SelectString (0, "RANDOM");
 		CString strNewMonsterName;
 		if (CB_ERR == m_ComboMonsterName.GetCurSel())
@@ -262,18 +258,35 @@ void CMapAttributePage::OnCheckAttreraser()
 	UpdateBrushMode();
 }
 
+void CMapAttributePage::SelectBrushShapeButton (int nId)
+{
+	CheckDlgButton (IDC_MAP_ATTR_BRUSH_SHAPE_CIRCLE, nId == IDC_MAP_ATTR_BRUSH_SHAPE_CIRCLE);
+	CheckDlgButton (IDC_MAP_ATTR_BRUSH_SHAPE_SQUARE, nId == IDC_MAP_ATTR_BRUSH_SHAPE_SQUARE);
+	CheckDlgButton (IDC_MAP_ATTR_BRUSH_SHAPE_TRIANGLE, nId == IDC_MAP_ATTR_BRUSH_SHAPE_TRIANGLE);
+}
+
 void CMapAttributePage::OnMapAttrBrushShapeCircle()
 {
-	// TODO: Add your control notification handler code here
-	CheckRadioButton (IDC_MAP_ATTR_BRUSH_SHAPE_CIRCLE, IDC_MAP_ATTR_BRUSH_SHAPE_SQUARE, IDC_MAP_ATTR_BRUSH_SHAPE_CIRCLE);
+	SelectBrushShapeButton (IDC_MAP_ATTR_BRUSH_SHAPE_CIRCLE);
 	UpdateBrushShape();
 }
 
 void CMapAttributePage::OnMapAttrBrushShapeSquare()
 {
-	// TODO: Add your control notification handler code here
-	CheckRadioButton (IDC_MAP_ATTR_BRUSH_SHAPE_CIRCLE, IDC_MAP_ATTR_BRUSH_SHAPE_SQUARE, IDC_MAP_ATTR_BRUSH_SHAPE_SQUARE);
+	SelectBrushShapeButton (IDC_MAP_ATTR_BRUSH_SHAPE_SQUARE);
 	UpdateBrushShape();
+}
+
+void CMapAttributePage::OnMapAttrBrushShapeTriangle()
+{
+	SelectBrushShapeButton (IDC_MAP_ATTR_BRUSH_SHAPE_TRIANGLE);
+	CWorldEditorApp * pApplication = (CWorldEditorApp*) AfxGetApp();
+	CMapManagerAccessor * pMapManagerAccessor = pApplication->GetMapManagerAccessor();
+	if (pMapManagerAccessor)
+	{
+		pMapManagerAccessor->SetBrushShape (CTerrainAccessor::BRUSH_SHAPE_TRIANGLE);
+		SetDlgItemText (IDC_MAP_ATTR_BRUSH_SHAPE_PRINT, "Triangle");
+	}
 }
 
 void CMapAttributePage::UpdateBrushShape()
@@ -295,6 +308,11 @@ void CMapAttributePage::UpdateBrushShape()
 	{
 		pMapManagerAccessor->SetBrushShape (CTerrainAccessor::BRUSH_SHAPE_SQUARE);
 		SetDlgItemText (IDC_MAP_ATTR_BRUSH_SHAPE_PRINT, "Square");
+	}
+	else if (TRUE == IsDlgButtonChecked (IDC_MAP_ATTR_BRUSH_SHAPE_TRIANGLE))
+	{
+		pMapManagerAccessor->SetBrushShape (CTerrainAccessor::BRUSH_SHAPE_TRIANGLE);
+		SetDlgItemText (IDC_MAP_ATTR_BRUSH_SHAPE_PRINT, "Triangle");
 	}
 }
 
@@ -319,11 +337,6 @@ void CMapAttributePage::OnHScroll (UINT nSBCode, UINT nPos, CScrollBar* pScrollB
 	{
 		pMapManagerAccessor->SetBrushSizeY (m_SliderMonsterAreaScale.GetPos());
 		UpdateBrushSize();
-	}
-	else if (pScrollBar->GetSafeHwnd() == m_SliderAttrNum.GetSafeHwnd())
-	{
-		OnMapAttrCheckbox();
-		SetDlgItemInt (IDC_ATTR_NUM, m_SliderAttrNum.GetPos(), FALSE);
 	}
 }
 
@@ -353,32 +366,29 @@ void CMapAttributePage::UpdateBrushSize()
 
 BYTE CMapAttributePage::GetAttributeFlag()
 {
-	int iAttrNum = m_SliderAttrNum.GetPos();
-
-	int aiChecked[8] =
+	const int aiAttrCheckbox[8] =
 	{
-		IsDlgButtonChecked (IDC_MAP_ATTR0_CHECKBOX),
-		IsDlgButtonChecked (IDC_MAP_ATTR1_CHECKBOX),
-		IsDlgButtonChecked (IDC_MAP_ATTR2_CHECKBOX),
-		IsDlgButtonChecked (IDC_MAP_ATTR3_CHECKBOX),
-		iAttrNum % 2,
-		(iAttrNum / 2) % 2,
-		(iAttrNum / 4) % 2,
-		(iAttrNum / 8) % 2
+		IDC_MAP_ATTR0_CHECKBOX,
+		IDC_MAP_ATTR1_CHECKBOX,
+		IDC_MAP_ATTR2_CHECKBOX,
+		IDC_MAP_ATTR3_CHECKBOX,
+		IDC_MAP_ATTR4_CHECKBOX,
+		IDC_MAP_ATTR5_CHECKBOX,
+		IDC_MAP_ATTR6_CHECKBOX,
+		IDC_MAP_ATTR7_CHECKBOX
 	};
 
 	BYTE bFlag = 0;
-
-	Tracef ("%d, %d, %d, %d, %d, %d, %d, %d\n", aiChecked[0], aiChecked[1], aiChecked[2], aiChecked[3], aiChecked[4], aiChecked[5], aiChecked[6], aiChecked[7]);
+	int aiChecked[8];
 
 	for (int i = 0; i < 8; ++i)
 	{
+		aiChecked[i] = IsDlgButtonChecked (aiAttrCheckbox[i]);
 		if (aiChecked[i])
-		{
-			bFlag |= (1 << i);
-		}
+			bFlag |= (BYTE) (1 << i);
 	}
 
+	Tracef ("%d, %d, %d, %d, %d, %d, %d, %d\n", aiChecked[0], aiChecked[1], aiChecked[2], aiChecked[3], aiChecked[4], aiChecked[5], aiChecked[6], aiChecked[7]);
 	return bFlag;
 }
 

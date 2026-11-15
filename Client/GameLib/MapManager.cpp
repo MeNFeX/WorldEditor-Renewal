@@ -237,7 +237,7 @@ void CMapManager::BeginEnvironment()
 	{
 		ms_lpd3dDevice->LightEnable(0, TRUE);
 
-		rkMap.ApplyLight((DWORD)mc_pcurEnvironmentData, mc_pcurEnvironmentData->DirLights[ENV_DIRLIGHT_BACKGROUND]);
+		rkMap.ApplyLight(reinterpret_cast<DWORD_PTR>(mc_pcurEnvironmentData), mc_pcurEnvironmentData->DirLights[ENV_DIRLIGHT_BACKGROUND]);
 	}
 	else
 		ms_lpd3dDevice->LightEnable(0, FALSE);

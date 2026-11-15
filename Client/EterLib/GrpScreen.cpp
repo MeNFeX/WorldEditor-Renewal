@@ -366,9 +366,18 @@ void CScreen::RenderSphere(const D3DXMATRIX * c_pmatWorld, float fx, float fy, f
 	RenderD3DXMesh(ms_lpSphereMesh, c_pmatWorld, fx, fy, fz, fRadius, d3dFillMode);
 }
 
-void CScreen::RenderCylinder(const D3DXMATRIX * c_pmatWorld, float fx, float fy, float fz, float fRadius, float /*fLength*/, D3DFILLMODE d3dFillMode) const
+void CScreen::RenderCylinder(const D3DXMATRIX * c_pmatWorld, float fx, float fy, float fz, float fRadius, float fLength, D3DFILLMODE d3dFillMode) const
 {
-	RenderD3DXMesh(ms_lpCylinderMesh, c_pmatWorld, fx, fy, fz, fRadius, d3dFillMode);
+	D3DXMATRIX matTranslation;
+	D3DXMATRIX matScaling;
+	D3DXMatrixTranslation(&matTranslation, fx, fy, fz);
+	D3DXMatrixScaling(&matScaling, fRadius, fRadius, fRadius + fLength);
+
+	D3DXMATRIX matWorld = matScaling * matTranslation;
+	if (c_pmatWorld)
+		matWorld *= *c_pmatWorld;
+
+	RenderD3DXMesh(ms_lpCylinderMesh, &matWorld, 0.0f, 0.0f, 0.0f, 1.0f, d3dFillMode);
 }
 
 void CScreen::RenderTextureBox(float sx, float sy, float ex, float ey, float z, float su, float sv, float eu, float ev) const
@@ -644,21 +653,13 @@ BOOL CScreen::RestoreDevice() const
 	D3DPRESENT_PARAMETERS & rkD3DPP = ms_d3dPresentParameter;
 	D3D_CDisplayModeAutoDetector & rkD3DDetector = ms_kD3DDetector;
 
-	HRESULT hrDeviceState;
-	if (rkD3DPP.Windowed)
-		hrDeviceState = rkD3DDev.CheckDeviceState(ms_hWnd);
-	else
-		hrDeviceState = rkD3DDev.TestCooperativeLevel();
+	const HRESULT hrDeviceState = rkD3DDev.CheckDeviceState(ms_hWnd);
 
-	if (FAILED(hrDeviceState))
+	if (hrDeviceState == S_PRESENT_OCCLUDED || hrDeviceState == D3DERR_DEVICELOST)
+		return FALSE;
+
+	if (hrDeviceState == D3DERR_DEVICENOTRESET || hrDeviceState == D3DERR_DEVICEHUNG || hrDeviceState == D3DERR_DEVICEREMOVED || hrDeviceState == S_PRESENT_MODE_CHANGED)
 	{
-		if (D3DERR_DEVICELOST == hrDeviceState)
-		{
-			return FALSE;
-		}
-
-		if (D3DERR_DEVICENOTRESET == hrDeviceState)
-		{
 			D3D_CAdapterInfo* pkD3DAdapterInfo = rkD3DDetector.GetD3DAdapterInfop(ms_iD3DAdapterInfo);
 
 			if (!pkD3DAdapterInfo)
@@ -690,7 +691,6 @@ BOOL CScreen::RestoreDevice() const
 				rkD3DDev.SetMaximumFrameLatency(1);
 
 			STATEMANAGER.SetDefaultState();
-		}
 	}
 
 	return TRUE;
@@ -737,7 +737,9 @@ void CScreen::Show(HWND hWnd) const
 	else
 	{
 		const HRESULT hr=ms_lpd3dDevice->PresentEx(nullptr, nullptr, hWnd, nullptr, 0);
-		if (D3DERR_DEVICELOST == hr)
+		if (hr == S_OK || hr == S_PRESENT_OCCLUDED || hr == D3DERR_DEVICELOST)
+			return;
+		if (hr == D3DERR_DEVICENOTRESET || hr == D3DERR_DEVICEHUNG || hr == D3DERR_DEVICEREMOVED || hr == S_PRESENT_MODE_CHANGED)
 			RestoreDevice();
 	}
 }

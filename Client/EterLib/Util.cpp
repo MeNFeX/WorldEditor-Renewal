@@ -257,7 +257,7 @@ const char*	GetFontFaceFromCodePage(WORD codePage)
 
 	const HDC hDC=GetDC(nullptr);
 
-	if(EnumFontFamiliesEx(hDC, &logFont, (FONTENUMPROC)EnumFontFamExProc, (LONG)fontFace, 0) == 0)
+	if(EnumFontFamiliesEx(hDC, &logFont, (FONTENUMPROC)EnumFontFamExProc, reinterpret_cast<LPARAM>(fontFace), 0) == 0)
 	{
 		ReleaseDC(nullptr, hDC);
 		return fontFace;
@@ -265,7 +265,7 @@ const char*	GetFontFaceFromCodePage(WORD codePage)
 
 	fontFace = GetFontFaceFromCodePageNT(codePage);
 
-	if(EnumFontFamiliesEx(hDC, &logFont, (FONTENUMPROC)EnumFontFamExProc, (LONG)fontFace, 0) == 0)
+	if(EnumFontFamiliesEx(hDC, &logFont, (FONTENUMPROC)EnumFontFamExProc, reinterpret_cast<LPARAM>(fontFace), 0) == 0)
 	{
 		ReleaseDC(nullptr, hDC);
 		return fontFace;

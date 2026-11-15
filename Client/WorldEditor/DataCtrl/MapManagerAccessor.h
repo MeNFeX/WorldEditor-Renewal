@@ -36,6 +36,10 @@ class CMapManagerAccessor : public CMapManager
 		virtual void		Clear();
 		virtual CMapBase* 	AllocMap();
 		virtual bool		LoadMap (const std::string & c_rstrMapName);
+		void				TrimMemory();
+		bool				GetTerrainCount (short * psCountX, short * psCountY);
+		bool				GetBaseXY (DWORD * pdwX, DWORD * pdwY);
+		std::string			GetEnvironmentDataName();
 
 		void				UpdateEditing();
 
@@ -260,6 +264,13 @@ class CMapManagerAccessor : public CMapManager
 		void InsertObject (float fx, float fy, float fz, int iRotation, DWORD dwCRC);
 		void InsertObject (float fx, float fy, float fz, float fYaw, float fPitch, float fRoll, DWORD dwScale, DWORD dwCRC);
 		void RefreshObjectHeight (float fx, float fy, float fHalfSize);
+		void DrawHeightBrush (float fX, float fY, DWORD dwBrushShape, DWORD dwBrushType, BYTE byBrushSize, BYTE byBrushStrength, bool bRefreshObjectHeight);
+		void SetAllWaterHeight (long lHeight);
+		bool GenerateServerAttr (const std::string & c_rstrFolder);
+		bool GetObjectHeightBias (int iIndex, float * pfBias);
+		bool SetObjectHeightBias (int iIndex, float fBias);
+		bool GetObjectRotation (int iIndex, float * pfYaw, float * pfPitch, float * pfRoll);
+		bool SetObjectRotation (int iIndex, float fYaw, float fPitch, float fRoll);
 		// About Object Picking
 		////////////////////////////////////////////
 

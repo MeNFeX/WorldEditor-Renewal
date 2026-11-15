@@ -6,8 +6,24 @@
 
 bool CTreeLoader::OnFolder (const char* c_szFilter, const char* c_szPathName, const char* c_szFileName)
 {
-	char szItemName[32 + 1];
-	_snprintf (szItemName, 32, "[ %s ]", c_szFileName);
+	char szItemName[64];
+	int iItem = 0;
+	szItemName[iItem++] = '[';
+	szItemName[iItem++] = ' ';
+	for (const unsigned char* p = reinterpret_cast<const unsigned char*>(c_szFileName); *p && iItem < 48; ++p)
+	{
+		if (*p >= 32 && *p < 127)
+			szItemName[iItem++] = static_cast<char>(*p);
+	}
+	if (iItem == 2)
+	{
+		szItemName[iItem++] = '.';
+		szItemName[iItem++] = '.';
+		szItemName[iItem++] = '.';
+	}
+	szItemName[iItem++] = ' ';
+	szItemName[iItem++] = ']';
+	szItemName[iItem] = '\0';
 	m_hNextItem = m_pTreeControler->InsertItem (szItemName, 0, 1, m_hParentItem, TVI_SORT);
 
 	// Insert Path Map

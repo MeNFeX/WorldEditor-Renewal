@@ -56,6 +56,8 @@ void CMapCtrlBar::Initialize()
 	m_pageEnvironment.Initialize();
 	m_pageAttribute.Initialize();
 
+	m_pageFile.InstallFolderDrop (GetSafeHwnd());
+
 	UpdatePage();
 }
 

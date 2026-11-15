@@ -1,5 +1,29 @@
 #include "StdAfx.h"
 #include "FileBase.h"
+#include <string>
+
+namespace
+{
+	std::wstring FilenameToWide(const char* filename)
+	{
+		if (!filename || !*filename)
+			return std::wstring();
+
+		int n = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, filename, -1, nullptr, 0);
+		UINT cp = CP_UTF8;
+		if (n <= 0)
+		{
+			cp = CP_ACP;
+			n = MultiByteToWideChar(CP_ACP, 0, filename, -1, nullptr, 0);
+		}
+		if (n <= 1)
+			return std::wstring();
+
+		std::wstring out(static_cast<size_t>(n - 1), L'\0');
+		MultiByteToWideChar(cp, cp == CP_UTF8 ? MB_ERR_INVALID_CHARS : 0, filename, -1, &out[0], n);
+		return out;
+	}
+}
 
 CFileBase::CFileBase() : m_hFile(nullptr), m_dwSize(0)
 {
@@ -46,13 +70,14 @@ BOOL CFileBase::Create(const char* filename, EFileMode mode)
 	else
 		dwMode = GENERIC_READ;
 
-	m_hFile = CreateFile(filename,					// name of the file
-						 dwMode,					// desired access
-						 dwShareMode,				// share mode
-						 nullptr,						// security attributes
-						 mode == FILEMODE_READ ? OPEN_EXISTING : OPEN_ALWAYS, // creation disposition
-						 FILE_ATTRIBUTE_NORMAL,		// flags and attr
-	nullptr);						// template file
+	const std::wstring stWideName = FilenameToWide(filename);
+	m_hFile = CreateFileW(stWideName.c_str(),
+						 dwMode,
+						 dwShareMode,
+						 nullptr,
+						 mode == FILEMODE_READ ? OPEN_EXISTING : OPEN_ALWAYS,
+						 FILE_ATTRIBUTE_NORMAL,
+						 nullptr);
 
 	if (m_hFile != INVALID_HANDLE_VALUE)
 	{

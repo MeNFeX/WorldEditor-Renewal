@@ -52,9 +52,12 @@ void CToolBarFile::ShowButtonText (BOOL bShow)
 	}
 	else
 	{
-		SetSizes (CSize (43, 34), CSize (36, 28)); // 한글 3문자
-		LoadBitmap (IDB_MAINFRAME_LARGE);
-		m_nBitmapID = IDB_MAINFRAME_LARGE;
+		if (!InstallLargeIcons (IDB_MAINFRAME_LARGE, 36, 28))
+		{
+			SetSizes (CSize (43, 34), CSize (36, 28));
+			LoadBitmap (IDB_MAINFRAME_LARGE);
+			m_nBitmapID = IDB_MAINFRAME_LARGE;
+		}
 	}
 }
 

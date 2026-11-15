@@ -66,6 +66,7 @@ BEGIN_MESSAGE_MAP (CMapTerrainPage, CPageCtrl)
 	//{{AFX_MSG_MAP(CMapTerrainPage)
 	ON_BN_CLICKED (IDC_MAP_TERRAIN_BRUSH_SHAPE_CIRCLE, OnSelectBrushShapeCircle)
 	ON_BN_CLICKED (IDC_MAP_TERRAIN_BRUSH_SHAPE_SQUARE, OnSelectBrushShapeSquare)
+	ON_BN_CLICKED (IDC_MAP_TERRAIN_BRUSH_SHAPE_TRIANGLE, OnSelectBrushShapeTriangle)
 	ON_BN_CLICKED (IDC_MAP_TERRAIN_BRUSH_UP, OnSelectBrushTypeUp)
 	ON_BN_CLICKED (IDC_MAP_TERRAIN_BRUSH_DOWN, OnSelectBrushTypeDown)
 	ON_BN_CLICKED (IDC_MAP_TERRAIN_BRUSH_PLATEAU, OnSelectBrushTypePlateau)
@@ -110,9 +111,12 @@ BOOL CMapTerrainPage::Create (CWnd * pParent)
 
 	CreateBitmapButton ((CButton*)GetDlgItem (IDC_MAP_TERRAIN_BRUSH_SHAPE_CIRCLE), IDB_MAP_TERRAIN_BRUSH_SHAPE_CIRCLE, m_BitmapBrushShapeCircle);
 	CreateBitmapButton ((CButton*)GetDlgItem (IDC_MAP_TERRAIN_BRUSH_SHAPE_SQUARE), IDB_MAP_TERRAIN_BRUSH_SHAPE_SQUARE, m_BitmapBrushShapeSquare);
+	CreateBitmapButton ((CButton*)GetDlgItem (IDC_MAP_TERRAIN_BRUSH_SHAPE_TRIANGLE), IDB_MAP_TERRAIN_BRUSH_SHAPE_TRIANGLE, m_BitmapBrushShapeTriangle);
 
 	CheckRadioButton (IDC_MAP_TERRAIN_BRUSH_UP, IDC_MAP_TERRAIN_BRUSH_SMOOTH, IDC_MAP_TERRAIN_BRUSH_UP);
-	CheckRadioButton (IDC_MAP_TERRAIN_BRUSH_SHAPE_CIRCLE, IDC_MAP_TERRAIN_BRUSH_SHAPE_SQUARE, IDC_MAP_TERRAIN_BRUSH_SHAPE_CIRCLE);
+	CheckDlgButton (IDC_MAP_TERRAIN_BRUSH_SHAPE_CIRCLE, 1);
+	CheckDlgButton (IDC_MAP_TERRAIN_BRUSH_SHAPE_SQUARE, 0);
+	CheckDlgButton (IDC_MAP_TERRAIN_BRUSH_SHAPE_TRIANGLE, 0);
 
 	CheckDlgButton (IDC_CHECK_HEIGHTBRUSH,	0);
 	CheckDlgButton (IDC_CHECK_TEXTUREBRUSH,	0);
@@ -331,6 +335,11 @@ void CMapTerrainPage::UpdateBrushShape()
 		pMapManagerAccessor->SetBrushShape (CTerrainAccessor::BRUSH_SHAPE_SQUARE);
 		SetDlgItemText (IDC_MAP_TERRAIN_BRUSH_SHAPE_PRINT, "Square");
 	}
+	else if (TRUE == IsDlgButtonChecked (IDC_MAP_TERRAIN_BRUSH_SHAPE_TRIANGLE))
+	{
+		pMapManagerAccessor->SetBrushShape (CTerrainAccessor::BRUSH_SHAPE_TRIANGLE);
+		SetDlgItemText (IDC_MAP_TERRAIN_BRUSH_SHAPE_PRINT, "Triangle");
+	}
 }
 
 void CMapTerrainPage::UpdateBrushType()
@@ -404,16 +413,35 @@ void CMapTerrainPage::UpdateBrushApply()
 /////////////////////////////////////////////////////////////////////////////
 // CMapTerrainPage message handlers
 
+void CMapTerrainPage::SelectBrushShapeButton (int nId)
+{
+	CheckDlgButton (IDC_MAP_TERRAIN_BRUSH_SHAPE_CIRCLE, nId == IDC_MAP_TERRAIN_BRUSH_SHAPE_CIRCLE);
+	CheckDlgButton (IDC_MAP_TERRAIN_BRUSH_SHAPE_SQUARE, nId == IDC_MAP_TERRAIN_BRUSH_SHAPE_SQUARE);
+	CheckDlgButton (IDC_MAP_TERRAIN_BRUSH_SHAPE_TRIANGLE, nId == IDC_MAP_TERRAIN_BRUSH_SHAPE_TRIANGLE);
+}
+
 void CMapTerrainPage::OnSelectBrushShapeCircle()
 {
-	CheckRadioButton (IDC_MAP_TERRAIN_BRUSH_SHAPE_CIRCLE, IDC_MAP_TERRAIN_BRUSH_SHAPE_SQUARE, IDC_MAP_TERRAIN_BRUSH_SHAPE_CIRCLE);
+	SelectBrushShapeButton (IDC_MAP_TERRAIN_BRUSH_SHAPE_CIRCLE);
 	UpdateBrushShape();
 }
 
 void CMapTerrainPage::OnSelectBrushShapeSquare()
 {
-	CheckRadioButton (IDC_MAP_TERRAIN_BRUSH_SHAPE_CIRCLE, IDC_MAP_TERRAIN_BRUSH_SHAPE_SQUARE, IDC_MAP_TERRAIN_BRUSH_SHAPE_SQUARE);
+	SelectBrushShapeButton (IDC_MAP_TERRAIN_BRUSH_SHAPE_SQUARE);
 	UpdateBrushShape();
+}
+
+void CMapTerrainPage::OnSelectBrushShapeTriangle()
+{
+	SelectBrushShapeButton (IDC_MAP_TERRAIN_BRUSH_SHAPE_TRIANGLE);
+	CWorldEditorApp * pApplication = (CWorldEditorApp*) AfxGetApp();
+	CMapManagerAccessor * pMapManagerAccessor = pApplication->GetMapManagerAccessor();
+	if (pMapManagerAccessor)
+	{
+		pMapManagerAccessor->SetBrushShape (CTerrainAccessor::BRUSH_SHAPE_TRIANGLE);
+		SetDlgItemText (IDC_MAP_TERRAIN_BRUSH_SHAPE_PRINT, "Triangle");
+	}
 }
 
 void CMapTerrainPage::OnSelectBrushTypeUp()
@@ -605,17 +633,17 @@ void CMapTerrainPage::SetWaterHeightZ (int iSlider)
 
 void CMapTerrainPage::OnButtonWaterSet0()
 {
-	SetWaterHeightZ (0);
+	SetWaterHeightZ (16384);
 }
 
 void CMapTerrainPage::OnButtonWaterPlus()
 {
-	SetWaterHeightZ (m_SliderWaterHeight.GetPos() + 1);
+	SetWaterHeightZ (m_SliderWaterHeight.GetPos() + 100);
 }
 
 void CMapTerrainPage::OnButtonWaterMinus()
 {
-	SetWaterHeightZ (m_SliderWaterHeight.GetPos() - 1);
+	SetWaterHeightZ (m_SliderWaterHeight.GetPos() - 100);
 }
 
 void CMapTerrainPage::DeleteOneTexture()

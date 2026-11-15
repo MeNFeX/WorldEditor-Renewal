@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include <vector>
 #include "MapAccessorOutdoor.h"
 #include "MapAccessorTerrain.h"
 #include "NonPlayerCharacterInfo.h"
@@ -24,6 +25,7 @@ CMapOutdoorAccessor::CMapOutdoorAccessor()
 	ms_pkProgressDialog = NULL;
 	ms_pThis = this;
 	m_bNowAccessGarvage = FALSE;
+	m_bEdited = false;
 }
 
 CMapOutdoorAccessor::~CMapOutdoorAccessor()
@@ -50,9 +52,14 @@ void CMapOutdoorAccessor::OnPreAssignTerrainPtr()
 	{
 		return;
 	}
-	SaveTerrains();
-	SaveAreas();
-	SaveMonsterAreaInfo();
+	// v59 skips the nine-sector rewrite while PRELOAD_ALL_TERRAINS is on.
+	// Those sectors stay in memory, so saving them on every move is the hitch.
+	if (!CWorldEditorConfig::Instance().PreloadAllTerrains())
+	{
+		SaveTerrains();
+		SaveAreas();
+		SaveMonsterAreaInfo();
+	}
 	CMainFrame * pFrame = (CMainFrame*) AfxGetMainWnd();
 	pFrame->UpdateMapControlBar();
 }
@@ -675,6 +682,21 @@ void CMapOutdoorAccessor::PreviewWaterBrush (DWORD dwBrushShape,
 	RenderLine3d (fx - 30.0f, -fy, fz, fx + 30.0f, -fy, fz);
 	RenderLine3d (fx, -fy - 30.0f, fz, fx, -fy + 30.0f, fz);
 
+	if (CTerrainAccessor::BRUSH_SHAPE_TRIANGLE == dwBrushShape)
+	{
+		const float fRadius = float (byBrushSize * CTerrainImpl::CELLSCALE);
+		const float fCos = 0.86602540378f;
+		const float fApexX = fx;
+		const float fApexY = - (fy - fRadius);
+		const float fBaseY = - (fy + 0.5f * fRadius);
+		const float fLeftX = fx - fCos * fRadius;
+		const float fRightX = fx + fCos * fRadius;
+		RenderLine3d (fApexX, fApexY, fz, fRightX, fBaseY, fz);
+		RenderLine3d (fRightX, fBaseY, fz, fLeftX, fBaseY, fz);
+		RenderLine3d (fLeftX, fBaseY, fz, fApexX, fApexY, fz);
+		return;
+	}
+
 	RenderLine3d (fLeft, fTop, fz, fLeft, fBottom, fz);
 	RenderLine3d (fRight, fTop, fz, fRight, fBottom, fz);
 	RenderLine3d (fLeft, fTop, fz, fRight, fTop, fz);
@@ -811,6 +833,7 @@ void CMapOutdoorAccessor::SetMapID (int iID)
 
 void CMapOutdoorAccessor::SetTerrainModified()
 {
+	m_bEdited = true;
 	ResetTerrainPatchVertexBuffer();
 	m_lOldReadX = m_lOldReadY = -1;
 }
@@ -996,8 +1019,9 @@ void CMapOutdoorAccessor::RenderAccessorTerrain (BYTE byRenderMode, BYTE byAttrF
 			STATEMANAGER.SaveTextureStageState (0, D3DTSS_TEXCOORDINDEX, D3DTSS_TCI_CAMERASPACEPOSITION);
 			STATEMANAGER.SaveTextureStageState (0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_COUNT2);
 
-			STATEMANAGER.SetTextureStageState (1, D3DTSS_COLORARG1, D3DTA_CURRENT);
-			STATEMANAGER.SetTextureStageState (1, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
+			STATEMANAGER.SetTextureStageState (1, D3DTSS_COLORARG1, D3DTA_TEXTURE);
+			STATEMANAGER.SetTextureStageState (1, D3DTSS_COLORARG2, D3DTA_CURRENT);
+			STATEMANAGER.SetTextureStageState (1, D3DTSS_COLOROP, D3DTOP_MODULATE);
 			STATEMANAGER.SetTextureStageState (1, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
 			STATEMANAGER.SetTextureStageState (1, D3DTSS_ALPHAARG2, D3DTA_CURRENT);
 			STATEMANAGER.SetTextureStageState (1, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
@@ -1176,18 +1200,21 @@ bool CMapOutdoorAccessor::ResetToDefaultAttr()
 			if (0 != _stat (szTerrainFolder, &sb))
 			{
 				LogBoxf ("[ERROR] ResetToDefaultAttr: Initialization failed: Directory does not exist. Dir: [%s].", szTerrainFolder);
+				delete pTerrainAccessor;
 				return false;
 			}
 
 			if (! (sb.st_mode & _S_IFDIR))
 			{
 				LogBoxf ("[ERROR] ResetToDefaultAttr: Initialization failed: A file with this name already exists. Name: [%s].", szTerrainFolder);
+				delete pTerrainAccessor;
 				return false;
 			}
 
 			if (!pTerrainAccessor->RAW_LoadAndSaveDefaultAttrMap (m_strName))
 			{
 				LogBoxf ("[ERROR] ResetToDefaultAttr: Failed to load and save attribute map. Coordinates: [%d, %d].", usX, usY);
+				delete pTerrainAccessor;
 				return false;
 			}
 		}
@@ -1195,6 +1222,18 @@ bool CMapOutdoorAccessor::ResetToDefaultAttr()
 	delete pTerrainAccessor;
 	pTerrainAccessor = NULL;
 	return true;
+}
+
+void CMapOutdoorAccessor::PreloadAllTerrains()
+{
+	for (WORD usY = 0; usY < m_sTerrainCountY; ++usY)
+	{
+		for (WORD usX = 0; usX < m_sTerrainCountX; ++usX)
+		{
+			LoadTerrain (usX, usY, 0, 0);
+			LoadArea (usX, usY, 0, 0);
+		}
+	}
 }
 
 bool CMapOutdoorAccessor::Destroy()
@@ -1355,39 +1394,37 @@ void CMapOutdoorAccessor::__UpdateGarvage()
 	static DWORD dwEraseTime = timeGetTime();
 	if (!m_TerrainDeleteVector.empty())
 	{
-		if (timeGetTime() - dwEraseTime <= dwTerrainEraseInterval)
+		if (timeGetTime() - dwEraseTime > dwTerrainEraseInterval)
 		{
-			return;
+			TTerrainPtrVector::iterator itor = m_TerrainDeleteVector.begin();
+			CTerrainAccessor * pTerrainAccessor = (CTerrainAccessor*) *itor;
+			m_TerrainDeleteVector.erase (itor);
+
+			delete pTerrainAccessor;
+			pTerrainAccessor = NULL;
+
+			Tracef ("Accessor Delete Terrain / Left Count : %d\n", timeGetTime() - dwEraseTime, m_TerrainDeleteVector.size());
+			dwEraseTime = timeGetTime();
 		}
-
-		TTerrainPtrVector::iterator itor = m_TerrainDeleteVector.begin();
-		CTerrainAccessor * pTerrainAccessor = (CTerrainAccessor*) *itor;
-		m_TerrainDeleteVector.erase (itor);
-
-		delete pTerrainAccessor;
-		pTerrainAccessor = NULL;
-
-		Tracef ("Accessor Delete Terrain / Left Count : %d\n", timeGetTime() - dwEraseTime, m_TerrainDeleteVector.size());
-		dwEraseTime = timeGetTime();
+		m_bNowAccessGarvage = FALSE;
 		return;
 	}
 
 	if (!m_AreaDeleteVector.empty())
 	{
-		if (timeGetTime() - dwEraseTime <= dwTerrainEraseInterval)
+		if (timeGetTime() - dwEraseTime > dwTerrainEraseInterval)
 		{
-			return;
+			TAreaPtrVector::iterator itor = m_AreaDeleteVector.begin();
+			CAreaAccessor * pAreaAccessor = (CAreaAccessor*) *m_AreaDeleteVector.begin();
+			m_AreaDeleteVector.erase (itor);
+
+			delete pAreaAccessor;
+			pAreaAccessor = NULL;
+
+			Tracef ("Delete Area [%d]\n", timeGetTime() - dwEraseTime);
+			dwEraseTime = timeGetTime();
 		}
-
-		TAreaPtrVector::iterator itor = m_AreaDeleteVector.begin();
-		CAreaAccessor * pAreaAccessor = (CAreaAccessor*) *m_AreaDeleteVector.begin();
-		m_AreaDeleteVector.erase (itor);
-
-		delete pAreaAccessor;
-		pAreaAccessor = NULL;
-
-		Tracef ("Delete Area [%d]\n", timeGetTime() - dwEraseTime);
-		dwEraseTime = timeGetTime();
+		m_bNowAccessGarvage = FALSE;
 		return;
 	}
 
@@ -1461,8 +1498,9 @@ bool CMapOutdoorAccessor::LoadTerrain (WORD wX, WORD wY, WORD wCellCoordX, WORD 
 	pTerrainAccessor->LoadHeightMap (szRawHeightFilename);
 	pTerrainAccessor->LoadAttrMap (szAttrMapName);
 	pTerrainAccessor->RAW_LoadTileMap (szRAWTileMapName);
-	pTerrainAccessor->LoadShadowTexture (szShadowTexName);
-	pTerrainAccessor->LoadShadowMap (szShadowMapName);
+	// shadowmap.raw replaces the DDS. Skip the DDS decode when the raw file loads.
+	if (!pTerrainAccessor->LoadShadowMap (szShadowMapName))
+		pTerrainAccessor->LoadShadowTexture (szShadowTexName);
 	pTerrainAccessor->SetName (c_rstrAreaName.c_str());
 	pTerrainAccessor->CalculateTerrainPatch();
 
@@ -1499,6 +1537,12 @@ void CMapOutdoorAccessor::ResetTextures()
 
 void CMapOutdoorAccessor::UpdateAreaList (long lCenterX, long lCenterY)
 {
+	// v59: preloaded sectors are kept. Deleting them reloads the cell from disk.
+	if (CWorldEditorConfig::Instance().PreloadAllTerrains())
+	{
+		return;
+	}
+
 	__ClearGarvage();
 
 	if (m_TerrainVector.size() <= AROUND_AREA_NUM && m_AreaVector.size() <= AROUND_AREA_NUM)
@@ -1705,6 +1749,7 @@ void CMapOutdoorAccessor::__ACCESS_ConvertToMapCoords (float fx, float fy, int* 
 
 void CMapOutdoorAccessor::RemoveMonsterAreaInfoPtr (CMonsterAreaInfo * pMonsterAreaInfo)
 {
+	m_bEdited = true;
 	m_MonsterAreaInfoPtrVectorIterator = std::ranges::find (m_MonsterAreaInfoPtrVector, pMonsterAreaInfo);
 	if (m_MonsterAreaInfoPtrVectorIterator != m_MonsterAreaInfoPtrVector.end())
 	{
@@ -2017,4 +2062,116 @@ void CMapOutdoorAccessor::main_ArrangeTerrainHeight (void* pv)
 	CMainFrame * pFrame = (CMainFrame*)AfxGetMainWnd();
 	CWorldEditorView * pView = (CWorldEditorView*)pFrame->GetActiveView();
 	pView->Unlock();
+}
+
+static bool PatchWaterFile (const char * c_szFileName, long lHeight)
+{
+	FILE * pFile = fopen (c_szFileName, "rb");
+	if (!pFile)
+		return false;
+
+	WORD wMagic = 0;
+	WORD wSizeX = 0;
+	WORD wSizeY = 0;
+	BYTE byNumWater = 0;
+	if (fread (&wMagic, sizeof (WORD), 1, pFile) != 1 ||
+		fread (&wSizeX, sizeof (WORD), 1, pFile) != 1 ||
+		fread (&wSizeY, sizeof (WORD), 1, pFile) != 1 ||
+		fread (&byNumWater, sizeof (BYTE), 1, pFile) != 1 ||
+		wMagic != 5426 || byNumWater == 0)
+	{
+		fclose (pFile);
+		return false;
+	}
+
+	std::vector<BYTE> kMap ((size_t) wSizeX * (size_t) wSizeY);
+	std::vector<long> kHeight (byNumWater);
+	if (kMap.empty() ||
+		fread (&kMap[0], 1, kMap.size(), pFile) != kMap.size() ||
+		fread (&kHeight[0], sizeof (long), byNumWater, pFile) != byNumWater)
+	{
+		fclose (pFile);
+		return false;
+	}
+	fclose (pFile);
+
+	for (BYTE i = 0; i < byNumWater; ++i)
+	{
+		if (kHeight[i] != -1)
+			kHeight[i] = lHeight;
+	}
+
+	pFile = fopen (c_szFileName, "wb");
+	if (!pFile)
+		return false;
+	fwrite (&wMagic, sizeof (WORD), 1, pFile);
+	fwrite (&wSizeX, sizeof (WORD), 1, pFile);
+	fwrite (&wSizeY, sizeof (WORD), 1, pFile);
+	fwrite (&byNumWater, sizeof (BYTE), 1, pFile);
+	fwrite (&kMap[0], 1, kMap.size(), pFile);
+	fwrite (&kHeight[0], sizeof (long), byNumWater, pFile);
+	fclose (pFile);
+	return true;
+}
+
+void CMapOutdoorAccessor::SetAllWaterHeight (long lHeight)
+{
+	std::vector<DWORD> kLoaded;
+	bool bChanged = false;
+	for (DWORD i = 0; i < m_TerrainVector.size(); ++i)
+	{
+		CTerrainAccessor * pTerrain = (CTerrainAccessor*) m_TerrainVector[i];
+		if (!pTerrain)
+			continue;
+		WORD wX = 0;
+		WORD wY = 0;
+		pTerrain->GetCoordinate (&wX, &wY);
+		kLoaded.push_back ((DWORD) wX * 1000L + (DWORD) wY);
+		if (!pTerrain->SetWaterHeightAll (lHeight))
+			continue;
+		pTerrain->SaveWaterMap (GetName());
+		bChanged = true;
+	}
+
+	const std::string strSearch = GetName() + "\\*";
+	WIN32_FIND_DATA kFind;
+	HANDLE hFind = FindFirstFile (strSearch.c_str(), &kFind);
+	if (hFind != INVALID_HANDLE_VALUE)
+	{
+		do
+		{
+			if (! (kFind.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+				continue;
+			if (kFind.cFileName[0] == '.')
+				continue;
+			if (lstrlen (kFind.cFileName) != 6)
+				continue;
+
+			char * pEnd = NULL;
+			const DWORD dwID = strtoul (kFind.cFileName, &pEnd, 10);
+			if (!pEnd || *pEnd != '\0')
+				continue;
+
+			bool bLoaded = false;
+			for (DWORD i = 0; i < kLoaded.size(); ++i)
+			{
+				if (kLoaded[i] == dwID)
+				{
+					bLoaded = true;
+					break;
+				}
+			}
+			if (bLoaded)
+				continue;
+
+			const std::string strWater = GetName() + "\\" + kFind.cFileName + "\\water.wtr";
+			if (PatchWaterFile (strWater.c_str(), lHeight))
+				bChanged = true;
+		}
+		while (FindNextFile (hFind, &kFind));
+		FindClose (hFind);
+	}
+
+	if (bChanged)
+		SetTerrainModified();
 }

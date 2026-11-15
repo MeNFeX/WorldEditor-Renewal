@@ -170,6 +170,42 @@ void CCursorRenderer::RenderCursorCircle (float fx, float fy, float fz, float fR
 	RenderLine3d (pts[iStep - 1].x, pts[iStep - 1].y, pts[iStep - 1].z, pts[0].x, pts[0].y, pts[0].z);
 }
 
+void CCursorRenderer::RenderCursorTriangle (float fx, float fy, float fRadius, int iStep)
+{
+	SetDiffuseOperation();
+	SetDiffuseColor (CWorldEditorConfig::Instance().CursorColorR(), CWorldEditorConfig::Instance().CursorColorG(), CWorldEditorConfig::Instance().CursorColorB());
+	STATEMANAGER.SetTransform (D3DTS_WORLD, &GetIdentityMatrix());
+	STATEMANAGER.SetRenderState (D3DRS_LIGHTING, FALSE);
+
+	const float fCos = 0.86602540378f;
+	const float ax[3] = { 0.0f, fCos, -fCos };
+	const float ay[3] = { -1.0f, 0.5f, 0.5f };
+	if (iStep < 3)
+		iStep = 3;
+
+	for (int edge = 0; edge < 3; ++edge)
+	{
+		const int next = (edge + 1) % 3;
+		const float x0 = fx + ax[edge] * fRadius;
+		const float y0 = fy + ay[edge] * fRadius;
+		const float x1 = fx + ax[next] * fRadius;
+		const float y1 = fy + ay[next] * fRadius;
+
+		for (int i = 0; i < iStep; ++i)
+		{
+			const float t0 = float (i) / float (iStep);
+			const float t1 = float (i + 1) / float (iStep);
+			const float sx = x0 + (x1 - x0) * t0;
+			const float sy = y0 + (y1 - y0) * t0;
+			const float ex = x0 + (x1 - x0) * t1;
+			const float ey = y0 + (y1 - y0) * t1;
+			const float sz = m_pHeightObserver->GetHeight (sx, sy) + 10.0f;
+			const float ez = m_pHeightObserver->GetHeight (ex, ey) + 10.0f;
+			RenderLine3d (sx, -sy, sz, ex, -ey, ez);
+		}
+	}
+}
+
 void CCursorRenderer::RenderCursorArea()
 {
 	SetDiffuseColor (CWorldEditorConfig::Instance().CursorColorR(), CWorldEditorConfig::Instance().CursorColorG(), CWorldEditorConfig::Instance().CursorColorB(), 1.0f);

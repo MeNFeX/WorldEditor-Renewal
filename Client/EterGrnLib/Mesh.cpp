@@ -12,12 +12,14 @@ granny_data_type_definition GrannyPNT3322VertexType[5] =
 	{GrannyEndMember}
 };
 
-void CGrannyMesh::LoadIndices(void * dstBaseIndices) const
+void CGrannyMesh::LoadIndices(void * dstBaseIndices, int bytesPerIndex) const
 {
 	const granny_mesh * pgrnMesh = GetGrannyMeshPointer();
+	if (bytesPerIndex != 2 && bytesPerIndex != 4)
+		bytesPerIndex = 2;
 
-	TIndex * dstIndices = ((TIndex *)dstBaseIndices) + m_idxBasePos;
-	GrannyCopyMeshIndices(pgrnMesh, sizeof(TIndex), dstIndices);
+	BYTE * dstIndices = ((BYTE *)dstBaseIndices) + m_idxBasePos * bytesPerIndex;
+	GrannyCopyMeshIndices(pgrnMesh, bytesPerIndex, dstIndices);
 }
 
 void CGrannyMesh::LoadPNTVertices(void * dstBaseVertices) const
@@ -27,7 +29,8 @@ void CGrannyMesh::LoadPNTVertices(void * dstBaseVertices) const
 	if (!GrannyMeshIsRigid(pgrnMesh))
 		return;
 
-	TPNTVertex * dstVertices = ((TPNTVertex *)dstBaseVertices) + m_vtxBasePos;
+	const int vtxStride = (m_pgrnMeshType == GrannyPNT3322VertexType) ? (int) sizeof (granny_pnt3322_vertex) : (int) sizeof (TPNTVertex);
+	void* dstVertices = static_cast<BYTE*>(dstBaseVertices) + static_cast<size_t>(m_vtxBasePos) * vtxStride;
 	GrannyCopyMeshVertices(pgrnMesh, m_pgrnMeshType, dstVertices);
 }
 
@@ -38,7 +41,8 @@ void CGrannyMesh::NEW_LoadVertices(void * dstBaseVertices) const
 	if (!GrannyMeshIsRigid(pgrnMesh))
 		return;
 
-	TPNTVertex * dstVertices = ((TPNTVertex *)dstBaseVertices) + m_vtxBasePos;
+	const int vtxStride = (m_pgrnMeshType == GrannyPNT3322VertexType) ? (int) sizeof (granny_pnt3322_vertex) : (int) sizeof (TPNTVertex);
+	void* dstVertices = static_cast<BYTE*>(dstBaseVertices) + static_cast<size_t>(m_vtxBasePos) * vtxStride;
 	GrannyCopyMeshVertices(pgrnMesh, m_pgrnMeshType, dstVertices);
 }
 

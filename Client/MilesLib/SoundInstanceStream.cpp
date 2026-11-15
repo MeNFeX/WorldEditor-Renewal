@@ -1,7 +1,10 @@
 #include "stdafx.h"
 #include "SoundInstance.h"
+#include "MilesMini.h"
+#include "../EterPack/EterPackManager.h"
 
-CSoundInstanceStream::CSoundInstanceStream() : m_stream(nullptr)
+CSoundInstanceStream::CSoundInstanceStream()
+	: m_voice(nullptr)
 {
 }
 
@@ -12,34 +15,40 @@ CSoundInstanceStream::~CSoundInstanceStream()
 
 void CSoundInstanceStream::Destroy()
 {
-	if (m_stream != nullptr)
-	{
-		AIL_close_stream(m_stream);
-		m_stream = nullptr;
-	}
+	MiniVoiceDestroy(m_voice);
+	m_voice = nullptr;
 }
 
 bool CSoundInstanceStream::Initialize()
 {
-	return true;
+	if (m_voice)
+		return true;
+
+	return MiniVoiceCreate(&m_voice);
 }
 
-void CSoundInstanceStream::SetStream(HSTREAM stream)
+bool CSoundInstanceStream::LoadFile(const char* filename)
 {
-	m_stream = stream;
+	if (!m_voice)
+		return false;
+
+	CMappedFile file;
+	LPCVOID view = nullptr;
+
+	if (!CEterPackManager::Instance().Get(file, filename, &view) || !view)
+		return false;
+
+	return MiniVoiceLoadCopy(m_voice, view, file.Size(), false);
 }
 
 bool CSoundInstanceStream::IsDone() const
 {
-	return AIL_stream_status(m_stream) == -1;
+	return MiniVoiceIsDone(m_voice);
 }
 
 bool CSoundInstanceStream::IsData() const
 {
-	if (m_stream)
-		return true;
-
-	return false;
+	return MiniVoiceHasData(m_voice);
 }
 
 void CSoundInstanceStream::Play(int count, DWORD dwPlayCycleTimeLimit) const
@@ -47,8 +56,8 @@ void CSoundInstanceStream::Play(int count, DWORD dwPlayCycleTimeLimit) const
 	if (!IsData())
 		return;
 
-	AIL_set_stream_loop_count(m_stream, count);
-	AIL_start_stream(m_stream);
+	(void) dwPlayCycleTimeLimit;
+	MiniVoicePlay(m_voice, count);
 }
 
 void CSoundInstanceStream::Pause() const
@@ -56,7 +65,7 @@ void CSoundInstanceStream::Pause() const
 	if (!IsData())
 		return;
 
-	AIL_pause_stream(m_stream, 1);
+	MiniVoicePause(m_voice);
 }
 
 void CSoundInstanceStream::Resume() const
@@ -64,7 +73,7 @@ void CSoundInstanceStream::Resume() const
 	if (!IsData())
 		return;
 
-	AIL_pause_stream(m_stream, 0);
+	MiniVoiceResume(m_voice);
 }
 
 void CSoundInstanceStream::Stop()
@@ -72,18 +81,15 @@ void CSoundInstanceStream::Stop()
 	if (!IsData())
 		return;
 
-	AIL_close_stream(m_stream);
-	m_stream = nullptr;
+	MiniVoiceClear(m_voice);
 }
 
 void CSoundInstanceStream::GetVolume(float& rfVolume) const
 {
-	float tmp;
-
 	if (!IsData())
 		return;
 
-	AIL_stream_volume_levels(m_stream, &rfVolume, &tmp);
+	rfVolume = MiniVoiceGetVolume(m_voice);
 }
 
 void CSoundInstanceStream::SetVolume(float volume) const
@@ -92,7 +98,7 @@ void CSoundInstanceStream::SetVolume(float volume) const
 		return;
 
 	volume = max(0.0f, min(1.0f, volume));
-	AIL_set_stream_volume_levels(m_stream, volume, volume);
+	MiniVoiceSetVolume(m_voice, volume);
 }
 
 bool CSoundInstanceStream::SetSound(CSoundData* pSound)
@@ -112,4 +118,3 @@ void CSoundInstanceStream::SetOrientation(float x_face, float y_face, float z_fa
 void CSoundInstanceStream::SetVelocity(float fx, float fy, float fz, float fMagnitude) const
 {
 }
-

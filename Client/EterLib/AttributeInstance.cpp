@@ -17,7 +17,7 @@ bool CAttributeInstance::Picking(const D3DXVECTOR3 & v, const D3DXVECTOR3 & dir,
 	float ny = 0;
 
 	for (DWORD i = 0; i < m_v3HeightDataVector.size(); ++i)
-		for (DWORD j = 0; j < m_v3HeightDataVector[i].size(); j+=3)
+		for (DWORD j = 0; j + 2 < m_v3HeightDataVector[i].size(); j+=3)
 		{
 			const D3DXVECTOR3 & cv0 = m_v3HeightDataVector[i][j];
 			const D3DXVECTOR3 & cv2 = m_v3HeightDataVector[i][j+1];
@@ -30,7 +30,10 @@ bool CAttributeInstance::Picking(const D3DXVECTOR3 & v, const D3DXVECTOR3 & dir,
 			D3DXVECTOR3 x;
 			float t;
 			auto val = (v-cv0);
-			t = - D3DXVec3Dot(&val,&n)/D3DXVec3Dot(&dir,&n);
+			const float denom = D3DXVec3Dot(&dir,&n);
+			if (denom > -0.00001f && denom < 0.00001f)
+				continue;
+			t = - D3DXVec3Dot(&val,&n)/denom;
 
 			x = v+t*dir;
 
@@ -145,7 +148,8 @@ void CAttributeInstance::SetObjectPointer(CAttributeData * pAttributeData)
 
 void CAttributeInstance::RefreshObject(const D3DXMATRIX & c_rmatGlobal)
 {
-	assert(!m_roAttributeData.IsNull());
+	if (m_roAttributeData.IsNull())
+		return;
 
 	m_matGlobal = c_rmatGlobal;
 
@@ -173,6 +177,8 @@ void CAttributeInstance::RefreshObject(const D3DXMATRIX & c_rmatGlobal)
 
 const char * CAttributeInstance::GetDataFileName() const
 {
+	if (m_roAttributeData.IsNull())
+		return "";
 	return m_roAttributeData->GetFileName();
 }
 

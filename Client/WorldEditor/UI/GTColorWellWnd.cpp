@@ -72,7 +72,7 @@ BOOL GTColorWellWnd::Create (DWORD dwStyle, CRect rcPos, CWnd* pParent, UINT nID
 				   rcPos.Width(),
 				   rcPos.Height(),
 				   pParent->GetSafeHwnd(),
-				   (HMENU) nID,
+				   reinterpret_cast<HMENU>(static_cast<UINT_PTR>(nID)),
 				   lp))
 
 	{
@@ -243,7 +243,7 @@ void GTColorWellWnd::OnSize (UINT nType, int cx, int cy)
 
 }
 
-LONG GTColorWellWnd::OnSelectBulletOK (UINT wParam, LONG lParam)
+LRESULT GTColorWellWnd::OnSelectBulletOK (WPARAM wParam, LPARAM lParam)
 {
 	wParam;
 	lParam;

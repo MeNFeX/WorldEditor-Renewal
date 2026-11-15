@@ -59,12 +59,12 @@ BOOL CFOHyperLink::PreTranslateMessage (MSG* pMsg)
 
 void CFOHyperLink::OnClicked()
 {
-	int result = (int)GotoURL (m_strURL, SW_SHOW);
-	m_bVisited = (result > HINSTANCE_ERROR);
+	const HINSTANCE result = GotoURL (m_strURL, SW_SHOW);
+	m_bVisited = reinterpret_cast<UINT_PTR>(result) > HINSTANCE_ERROR;
 	if (!m_bVisited)
 	{
 		MessageBeep (MB_ICONEXCLAMATION);    // Unable to follow link
-		ReportError (result);
+		ReportError (static_cast<int>(reinterpret_cast<INT_PTR>(result)));
 	}
 	else
 	{
@@ -457,7 +457,7 @@ HINSTANCE CFOHyperLink::GotoURL (LPCTSTR url, int showcmd)
 	HINSTANCE result = ShellExecute (NULL, _T ("open"), url, NULL, NULL, showcmd);
 
 	// If it failed, get the .htm regkey and lookup the program
-	if ((UINT)result <= HINSTANCE_ERROR)
+	if (reinterpret_cast<UINT_PTR>(result) <= HINSTANCE_ERROR)
 	{
 		if (GetRegKey (HKEY_CLASSES_ROOT, _T (".htm"), key) == ERROR_SUCCESS)
 		{

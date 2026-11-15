@@ -117,7 +117,7 @@ void CObjectAnimationEventEffectToTarget::SetData (const CRaceMotionDataAccessor
 
 void CObjectAnimationEventEffectToTarget::OnLoadEffect()
 {
-	DWORD dwFlag = OFN_NOCHANGEDIR;
+	DWORD dwFlag = OFN_NOCHANGEDIR | OFN_ENABLESIZING;
 	const char* c_szFilter = "Metin2 Effect Script Files (*.mse)|*.mse|*.*|All Files (*.*)|";
 	COpenFileDialog FileOpener (this, dwFlag, NULL, c_szFilter, c_strYmirWorkPath.c_str());
 

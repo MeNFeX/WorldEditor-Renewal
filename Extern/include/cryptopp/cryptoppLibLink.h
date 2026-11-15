@@ -11,7 +11,7 @@
 #include "dll.h"
 #else
 	#ifdef _WIN32
-		#ifdef _DEBUG
+		#if defined(_DEBUG) && !defined(_WIN64)
 			#pragma comment( lib, "cryptlib-Debug.lib" )
 		#else
 			#pragma comment( lib, "cryptlib-Release.lib" )

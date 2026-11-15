@@ -171,7 +171,7 @@ void CMapObjectPropertyPageAmbience::OnCancel()
 // Sound List
 void CMapObjectPropertyPageAmbience::OnNewSoundFile()
 {
-	DWORD dwFlag = OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR;
+	DWORD dwFlag = OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR | OFN_ENABLESIZING;
 	const char* c_szFilter = "Sound Files (*.wav, *.mp3)|*.wav;*.mp3|All Files (*.*)|*.*|";
 	CFileDialog FileOpener (TRUE, "Load", "", dwFlag, c_szFilter, this);
 

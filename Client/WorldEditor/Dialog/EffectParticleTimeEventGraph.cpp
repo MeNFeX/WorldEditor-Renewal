@@ -325,7 +325,7 @@ void CEffectTimeEventGraph::ConnectPoint (TPoint & rLeft, TPoint & rRight)
 	m_Screen.RenderLine2d (rLeft.ix, rLeft.iy, rRight.ix, rRight.iy);
 }
 
-void CEffectTimeEventGraph::OnTimer (UINT nIDEvent)
+void CEffectTimeEventGraph::OnTimer (UINT_PTR nIDEvent)
 {
 	if (IsWindowVisible())
 	{

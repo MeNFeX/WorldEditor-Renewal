@@ -9,6 +9,7 @@
 #include "MainFrm.h"
 #include "DataCtrl/MapAccessorOutdoor.h"
 #include "Util.h"
+#include "InterfaceTheme.h"
 
 #ifdef _DEBUG
 	#define new DEBUG_NEW
@@ -30,14 +31,26 @@ BEGIN_MESSAGE_MAP (CMainFrame, CFrameWnd)
 	ON_WM_CREATE()
 	ON_COMMAND (ID_EDIT_UNDO, OnUndo)
 	ON_COMMAND (ID_EDIT_REDO, OnRedo)
+	ON_COMMAND_RANGE (ID_INTERFACE_COLOR_LIGHT, ID_INTERFACE_COLOR_SLATE, OnInterfaceColor)
+	ON_UPDATE_COMMAND_UI_RANGE (ID_INTERFACE_COLOR_LIGHT, ID_INTERFACE_COLOR_SLATE, OnUpdateInterfaceColor)
+	ON_COMMAND (ID_INTERFACE_CUSTOM_PANEL, OnInterfaceCustomPanel)
+	ON_COMMAND (ID_INTERFACE_CUSTOM_TEXT, OnInterfaceCustomText)
+	ON_COMMAND_RANGE (ID_INTERFACE_FONT_DEFAULT, ID_INTERFACE_FONT_GEORGIA, OnInterfaceFont)
+	ON_UPDATE_COMMAND_UI_RANGE (ID_INTERFACE_FONT_DEFAULT, ID_INTERFACE_FONT_GEORGIA, OnUpdateInterfaceFont)
+	ON_COMMAND_RANGE (ID_INTERFACE_SIZE_DEFAULT, ID_INTERFACE_SIZE_12, OnInterfaceFontSize)
+	ON_UPDATE_COMMAND_UI_RANGE (ID_INTERFACE_SIZE_DEFAULT, ID_INTERFACE_SIZE_12, OnUpdateInterfaceFontSize)
 	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
 static UINT auiStatusIndicators[] =
 {
 	ID_SEPARATOR,           // status line indicator
-	ID_INDICATOR_OVR,
-	ID_INDICATOR_OVR,
+	ID_INDICATOR_OVR,       // sector folder, 000000
+	ID_INDICATOR_OVR,       // auto-save, starts as N/A
+	ID_INDICATOR_OVR,       // meters
+	ID_INDICATOR_OVR,       // sector X / Y
+	ID_INDICATOR_OVR,       // frames per second
+	ID_INDICATOR_OVR,       // frame time in milliseconds
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -45,13 +58,13 @@ static UINT auiStatusIndicators[] =
 
 CMainFrame::CMainFrame()
 {
+	m_strSaveStatus = "N/A";
+	m_fFrameMs = 0.0f;
 	timeBeginPeriod (1);
-	ilInit();
 }
 
 CMainFrame::~CMainFrame()
 {
-	ilShutDown();
 	DestroyBackGroundData();
 	timeEndPeriod (1);
 }
@@ -81,13 +94,60 @@ int CMainFrame::OnCreate (LPCREATESTRUCT lpCreateStruct)
 		return -1;
 	}
 
-#ifdef _DEBUG
-	m_strTitle = "World Editor Renewal 1.0 [WE-Debug | Win32 | " __DATE__ " " __TIME__ "]";
+#if defined(_WIN64)
+#define WORLDEDITOR_ARCH "x64"
 #else
-	m_strTitle = "World Editor Renewal 1.0 [WE-Release | Win32 | " __DATE__ " " __TIME__ "]";
+#define WORLDEDITOR_ARCH "Win32"
 #endif
 
+#ifdef _DEBUG
+	m_strTitle = "World Editor Renewal 1.0 [WE-Debug | " WORLDEDITOR_ARCH " | " __DATE__ " " __TIME__ "]";
+#else
+	m_strTitle = "World Editor Renewal 1.0 [WE-Release | " WORLDEDITOR_ARCH " | " __DATE__ " " __TIME__ "]";
+#endif
+
+	InterfaceThemeApplyStartup();
 	return 0;
+}
+
+void CMainFrame::OnInterfaceColor (UINT nId)
+{
+	InterfaceThemeSetColor (nId);
+}
+
+void CMainFrame::OnInterfaceCustomPanel()
+{
+	InterfaceThemePickCustom (false);
+}
+
+void CMainFrame::OnInterfaceCustomText()
+{
+	InterfaceThemePickCustom (true);
+}
+
+void CMainFrame::OnUpdateInterfaceColor (CCmdUI * pCmdUI)
+{
+	pCmdUI->SetCheck (pCmdUI->m_nID == InterfaceThemeColor());
+}
+
+void CMainFrame::OnInterfaceFont (UINT nId)
+{
+	InterfaceThemeSetFont (nId);
+}
+
+void CMainFrame::OnUpdateInterfaceFont (CCmdUI * pCmdUI)
+{
+	pCmdUI->SetCheck (pCmdUI->m_nID == InterfaceThemeFont());
+}
+
+void CMainFrame::OnInterfaceFontSize (UINT nId)
+{
+	InterfaceThemeSetSize (nId);
+}
+
+void CMainFrame::OnUpdateInterfaceFontSize (CCmdUI * pCmdUI)
+{
+	pCmdUI->SetCheck (pCmdUI->m_nID == InterfaceThemeSize());
 }
 
 void CMainFrame::PlayEffect()
@@ -142,16 +202,128 @@ BOOL CMainFrame::CreateStatusBar()
 		return FALSE;
 	}
 
-	UINT uiID;
-	UINT uiStyle;
-	int iWidth;
+	m_wndStatusBar.SetPaneText (1, "", TRUE);
+	m_wndStatusBar.SetPaneText (2, m_strSaveStatus, TRUE);
+	m_wndStatusBar.SetPaneText (3, "", TRUE);
+	m_wndStatusBar.SetPaneText (4, "", TRUE);
+	m_wndStatusBar.SetPaneText (5, "0 fps", TRUE);
+	m_wndStatusBar.SetPaneText (6, "0.0 ms", TRUE);
 
-	m_wndStatusBar.GetPaneInfo (1, uiID, uiStyle, iWidth);
-	m_wndStatusBar.SetPaneInfo (1, uiID, uiStyle, 260);
-
-	m_wndStatusBar.GetPaneInfo (2, uiID, uiStyle, iWidth);
-	m_wndStatusBar.SetPaneInfo (2, uiID, uiStyle, 250);
+	CRect rc;
+	m_wndStatusBar.GetClientRect (&rc);
+	if (rc.Width() > 0)
+		m_wndStatusBar.FitToWidth (rc.Width());
 	return TRUE;
+}
+
+BEGIN_MESSAGE_MAP (CEditorStatusBar, CStatusBar)
+	ON_WM_SIZE()
+END_MESSAGE_MAP()
+
+void CEditorStatusBar::OnSize (UINT nType, int cx, int cy)
+{
+	if (nType != SIZE_MINIMIZED && cx > 0 && !m_bFitting)
+	{
+		m_bFitting = true;
+		FitToWidth (cx);
+		m_bFitting = false;
+	}
+	CStatusBar::OnSize (nType, cx, cy);
+}
+
+void CEditorStatusBar::FitToWidth (int cx)
+{
+	if (m_nCount < 7)
+		return;
+
+	int rgBorders[3] = { 0, 0, 2 };
+	DefWindowProc (SB_GETBORDERS, 0, (LPARAM) rgBorders);
+	const int iPanePad = 6 + rgBorders[2];
+	CWnd * pParent = GetParent();
+	const int iGrip = (pParent && (pParent->GetStyle() & WS_THICKFRAME)) ? ::GetSystemMetrics (SM_CXVSCROLL) : 0;
+	int iBudget = cx - rgBorders[0] - iGrip - (7 * iPanePad) - 40;
+	if (iBudget < 48)
+		iBudget = 48;
+
+	const int kPrefer[6] = { 72, 200, 176, 52, 72, 78 };
+	const int kMin[6] = { 52, 28, 110, 36, 54, 58 };
+	int aiWidth[6];
+	int iPreferSum = 0;
+	int iMinSum = 0;
+	for (int i = 0; i < 6; ++i)
+	{
+		aiWidth[i] = kPrefer[i];
+		iPreferSum += kPrefer[i];
+		iMinSum += kMin[i];
+	}
+
+	if (iBudget >= iPreferSum)
+	{
+		int iExtra = iBudget - iPreferSum;
+		if (iExtra > 120)
+			iExtra = 120;
+		aiWidth[1] += iExtra;
+	}
+	else if (iBudget >= iMinSum)
+	{
+		int iCut = iPreferSum - iBudget;
+		const int iSaveSlack = kPrefer[1] - kMin[1];
+		if (iCut > 0)
+		{
+			const int iTake = (iCut < iSaveSlack) ? iCut : iSaveSlack;
+			aiWidth[1] -= iTake;
+			iCut -= iTake;
+		}
+		const int iFolderSlack = kPrefer[0] - kMin[0];
+		if (iCut > 0 && iFolderSlack > 0)
+		{
+			const int iTake = (iCut < iFolderSlack) ? iCut : iFolderSlack;
+			aiWidth[0] -= iTake;
+			iCut -= iTake;
+		}
+		if (iCut > 0)
+		{
+			int iRestPrefer = 0;
+			int iRestMin = 0;
+			for (int i = 2; i < 6; ++i)
+			{
+				iRestPrefer += kPrefer[i];
+				iRestMin += kMin[i];
+			}
+			const int iRestBudget = (iRestPrefer - iCut > iRestMin) ? (iRestPrefer - iCut) : iRestMin;
+			for (int i = 2; i < 6; ++i)
+				aiWidth[i] = (iRestPrefer > 0) ? (kPrefer[i] * iRestBudget / iRestPrefer) : kMin[i];
+		}
+	}
+	else
+	{
+		for (int i = 0; i < 6; ++i)
+			aiWidth[i] = (iPreferSum > 0) ? (kPrefer[i] * iBudget / iPreferSum) : 8;
+	}
+
+	int iSum = 0;
+	for (int i = 0; i < 6; ++i)
+	{
+		if (aiWidth[i] < 8)
+			aiWidth[i] = 8;
+		iSum += aiWidth[i];
+	}
+	if (iSum > iBudget && aiWidth[1] > 8)
+	{
+		aiWidth[1] -= iSum - iBudget;
+		if (aiWidth[1] < 8)
+			aiWidth[1] = 8;
+	}
+
+	for (int i = 0; i < 6; ++i)
+	{
+		UINT uiID = 0;
+		UINT uiStyle = 0;
+		int iWidth = 0;
+		GetPaneInfo (i + 1, uiID, uiStyle, iWidth);
+		if (iWidth != aiWidth[i])
+			SetPaneInfo (i + 1, uiID, uiStyle, aiWidth[i]);
+	}
 }
 
 BOOL CMainFrame::CreateToolBar()
@@ -294,39 +466,87 @@ void CMainFrame::Initialize()
 
 	CWorldEditorView * pView = (CWorldEditorView*) GetActiveView();
 	pView->Initialize();
+	m_wndMapCtrlBar.m_pageFile.InstallFolderDrop (GetSafeHwnd());
 
 	pSceneObject->FitCamera();
 }
 
 void CMainFrame::UpdateStatusBar (float fx, float fy, float fz)
 {
-	CStatusBar * pStatusBar = &m_wndStatusBar;
+	CString strMeter;
+	CString strSector;
+	CString strFolder;
+	unsigned uSectorX = 0;
+	unsigned uSectorY = 0;
+	bool bHaveSector = false;
 
-	CString strPixelPosition;
-	CString strAreaPosition;
+	strMeter.Format ("%.2f / %.2f / %.2f", fx / 100.0f, fy / 100.0f, fz / 100.0f);
 
-	strPixelPosition.Format ("Global Position: %.0f, %.0f", fx, fy);
-
-	const float fTerrainX = (float) CTerrainImpl::TERRAIN_XSIZE;
-	const float fTerrainY = (float) CTerrainImpl::TERRAIN_YSIZE;
-	float fLocalX = fx;
-	float fLocalY = fy;
-	if (fTerrainX > 0.0f)
+	CWorldEditorDoc * pDocument = (CWorldEditorDoc *) GetActiveDocument();
+	if (pDocument)
 	{
-		fLocalX = fx - fTerrainX * floorf (fx / fTerrainX);
-		if (fLocalX < 0.0f)
-			fLocalX += fTerrainX;
+		CMapManagerAccessor * pManager = pDocument->GetMapManagerAccessor();
+		CMapOutdoorAccessor * pMap = pManager->GetMapOutdoorPtr();
+		if (pMap && pManager->IsMapReady())
+		{
+			const TOutdoorMapCoordinate & rCoord = pMap->GetCurCoordinate();
+			int iSectorX = rCoord.m_sTerrainCoordX;
+			int iSectorY = rCoord.m_sTerrainCoordY;
+			if (iSectorX < 0 || iSectorY < 0)
+			{
+				const float fTerrainX = (float) CTerrainImpl::TERRAIN_XSIZE;
+				const float fTerrainY = (float) CTerrainImpl::TERRAIN_YSIZE;
+				iSectorX = (fTerrainX > 0.0f) ? (int) floorf (fx / fTerrainX) : 0;
+				iSectorY = (fTerrainY > 0.0f) ? (int) floorf (fy / fTerrainY) : 0;
+				if (iSectorX < 0)
+					iSectorX = 0;
+				if (iSectorY < 0)
+					iSectorY = 0;
+			}
+			bHaveSector = true;
+			uSectorX = (unsigned) iSectorX;
+			uSectorY = (unsigned) iSectorY;
+			strFolder.Format ("%06u", uSectorX * 1000u + uSectorY);
+		}
 	}
-	if (fTerrainY > 0.0f)
-	{
-		fLocalY = fy - fTerrainY * floorf (fy / fTerrainY);
-		if (fLocalY < 0.0f)
-			fLocalY += fTerrainY;
-	}
-	strAreaPosition.Format ("Local Position: %.0f, %.0f", fLocalX, fLocalY);
+	if (bHaveSector)
+		strSector.Format ("%u / %u", uSectorX, uSectorY);
 
-	pStatusBar->SetPaneText (1, strPixelPosition, TRUE);
-	pStatusBar->SetPaneText (2, strAreaPosition, TRUE);
+	m_wndStatusBar.SetPaneText (1, strFolder, TRUE);
+	m_wndStatusBar.SetPaneText (2, m_strSaveStatus, TRUE);
+	m_wndStatusBar.SetPaneText (3, strMeter, TRUE);
+	m_wndStatusBar.SetPaneText (4, strSector, TRUE);
+}
+
+void CMainFrame::SetFrameTime (float fFrameMs)
+{
+	if (fFrameMs < 0.0f)
+		fFrameMs = 0.0f;
+
+	if (m_fFrameMs <= 0.0f || fFrameMs > 200.0f)
+		m_fFrameMs = fFrameMs;
+	else
+		m_fFrameMs += (fFrameMs - m_fFrameMs) * 0.12f;
+
+	const float fFps = (m_fFrameMs > 0.05f) ? (1000.0f / m_fFrameMs) : 0.0f;
+	CString strFps;
+	CString strMs;
+	strFps.Format ("%.0f fps", fFps);
+	strMs.Format ("%.1f ms", m_fFrameMs);
+	if (m_wndStatusBar.GetSafeHwnd())
+	{
+		m_wndStatusBar.SetPaneText (5, strFps, TRUE);
+		m_wndStatusBar.SetPaneText (6, strMs, TRUE);
+	}
+}
+
+void CMainFrame::SetAutoSaveStatus (const char * c_szMessage)
+{
+	SYSTEMTIME kTime;
+	::GetLocalTime (&kTime);
+	m_strSaveStatus.Format ("[%02d:%02d:%02d] %s", kTime.wHour, kTime.wMinute, kTime.wSecond, c_szMessage);
+	if (m_wndStatusBar.GetSafeHwnd())
+		m_wndStatusBar.SetPaneText (2, m_strSaveStatus, TRUE);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -376,6 +596,11 @@ void CMainFrame::UpdateEffectControlBar()
 void CMainFrame::UpdateFlyControlBar()
 {
 	m_wndFlyCtrlBar.UpdatePage();
+}
+
+void CMainFrame::AcceptMapFolderDrop (HDROP hDrop)
+{
+	m_wndMapCtrlBar.m_pageFile.HandleFolderDrop (hDrop);
 }
 
 void CMainFrame::RunLoadMapEvent()

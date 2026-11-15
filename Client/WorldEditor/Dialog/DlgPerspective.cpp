@@ -19,7 +19,7 @@ CDlgPerspective::CDlgPerspective (CWnd* pParent /*=NULL*/)
 	: CDialog (CDlgPerspective::IDD, pParent)
 {
 	m_fFOV = 40.0f;
-	m_fNearDistance = 100.0f;
+	m_fNearDistance = 50.0f;
 	m_fFarDistance = 30000.0f;
 
 	//{{AFX_DATA_INIT(CDlgPerspective)
@@ -63,14 +63,20 @@ void CDlgPerspective::SetFOV (float fFOV)
 }
 void CDlgPerspective::SetNearDistance (float fDistance)
 {
+	const int iDistance = int (fDistance);
+	if (m_fNearDistance == fDistance && m_ctrlNearDistance.GetPos() == iDistance)
+		return;
 	m_fNearDistance = fDistance;
-	m_ctrlNearDistance.SetPos (int (fDistance));
+	m_ctrlNearDistance.SetPos (iDistance);
 	SetDialogIntegerText (GetSafeHwnd(), IDC_DIALOG_PERSPECTIVE_NEAR_DISTANCE_PRINT, m_fNearDistance);
 }
 void CDlgPerspective::SetFarDistance (float fDistance)
 {
+	const int iDistance = int (fDistance);
+	if (m_fFarDistance == fDistance && m_ctrlFarDistance.GetPos() == iDistance)
+		return;
 	m_fFarDistance = fDistance;
-	m_ctrlFarDistance.SetPos (int (fDistance));
+	m_ctrlFarDistance.SetPos (iDistance);
 	SetDialogIntegerText (GetSafeHwnd(), IDC_DIALOG_PERSPECTIVE_FAR_DISTANCE_PRINT, m_fFarDistance);
 }
 

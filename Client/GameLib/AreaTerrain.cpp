@@ -30,6 +30,9 @@ CTerrain::CTerrain()
 {
 	memset(&m_lpAlphaTexture, 0, sizeof(m_lpAlphaTexture));
 	memset(&m_lpMarkedTexture, 0, sizeof(m_lpMarkedTexture));
+#ifdef WORLD_EDITOR
+	m_lpOwnedShadowTexture = nullptr;
+#endif
 	Initialize();
 }
 
@@ -48,6 +51,13 @@ void CTerrain::SetMapOutDoor(CMapOutdoor * pOwnerOutdoorMap)
 void CTerrain::Clear()
 {
 	DeallocateMarkedSplats();
+#ifdef WORLD_EDITOR
+	if (m_lpOwnedShadowTexture)
+	{
+		m_lpOwnedShadowTexture->Release();
+		m_lpOwnedShadowTexture = nullptr;
+	}
+#endif
 	CTerrainImpl::Clear();
   	Initialize();
 }
@@ -125,9 +135,58 @@ bool CTerrain::LoadShadowMap(const char * c_pszFileName)
 
 	memcpy(m_awShadowMap, c_pvData, dwShadowMapSize);
 
+#ifdef WORLD_EDITOR
+	UploadShadowTextureFromRaw();
+#endif
+
 	Tracef("%d ms\n", ELTimer_GetMSec() - dwStart);
 	return true;
 }
+
+#ifdef WORLD_EDITOR
+void CTerrain::UploadShadowTextureFromRaw()
+{
+	if (!ms_lpd3dDevice)
+		return;
+
+	if (m_lpOwnedShadowTexture)
+	{
+		m_lpOwnedShadowTexture->Release();
+		m_lpOwnedShadowTexture = nullptr;
+	}
+
+	LPDIRECT3DTEXTURE9 texture = nullptr;
+	if (FAILED(ms_lpd3dDevice->CreateTexture(SHADOWMAP_XSIZE, SHADOWMAP_YSIZE, 1, D3DUSAGE_DYNAMIC, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &texture, nullptr)) || !texture)
+		return;
+
+	D3DLOCKED_RECT locked;
+	if (FAILED(texture->LockRect(0, &locked, nullptr, D3DLOCK_DISCARD)) || !locked.pBits)
+	{
+		texture->Release();
+		return;
+	}
+
+	for (int y = 0; y < SHADOWMAP_YSIZE; ++y)
+	{
+		DWORD * row = (DWORD *) ((BYTE *) locked.pBits + y * locked.Pitch);
+		const WORD * src = m_awShadowMap + y * SHADOWMAP_XSIZE;
+		for (int x = 0; x < SHADOWMAP_XSIZE; ++x)
+		{
+			WORD sample = src[x];
+			const int blue = (sample & 0x1f) << 3;
+			sample >>= 5;
+			const int green = (sample & 0x1f) << 3;
+			sample >>= 5;
+			const int red = (sample & 0x1f) << 3;
+			row[x] = 0xFF000000 | (red << 16) | (green << 8) | blue;
+		}
+	}
+
+	texture->UnlockRect(0);
+	m_lpOwnedShadowTexture = texture;
+	m_lpShadowTexture = texture;
+}
+#endif
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////

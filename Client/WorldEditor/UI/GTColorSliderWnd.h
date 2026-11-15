@@ -214,7 +214,7 @@ class GTColorSliderWnd : public CWnd
 		//}}AFX_MSG
 
 		//message map function On Select Day OK
-		afx_msg LONG OnSelectBulletOK (UINT wParam, LONG lParam);
+		afx_msg LRESULT OnSelectBulletOK (WPARAM wParam, LPARAM lParam);
 		DECLARE_MESSAGE_MAP()
 
 	public:
